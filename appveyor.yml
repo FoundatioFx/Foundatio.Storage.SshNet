@@ -9,6 +9,8 @@ pull_requests:
 environment:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  ConnectionStrings__SshNetStorageConnectionString:
+    secure: 3OTNRab3smXl+SDM8wBMYk+s/5EhwvU7hQftln6Vb7NDuzXC2mO+SXCS0SAG0HltvUcaf7h/yr9fW/2gfUPdKg==
 
 init:
   - git config --global core.autocrlf input
