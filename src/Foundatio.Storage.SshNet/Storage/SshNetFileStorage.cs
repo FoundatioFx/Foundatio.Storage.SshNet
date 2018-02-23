@@ -15,6 +15,7 @@ using Renci.SshNet.Common;
 namespace Foundatio.Storage {
     public class SshNetFileStorage : IFileStorage {
         private readonly ConnectionInfo _connectionInfo;
+        private readonly SftpClient _client;
         private readonly ISerializer _serializer;
         protected readonly ILogger _logger;
 
@@ -23,29 +24,29 @@ namespace Foundatio.Storage {
                 throw new ArgumentNullException(nameof(options));
 
             _connectionInfo = CreateConnectionInfo(options);
+            _client = new SftpClient(_connectionInfo);
+
             _serializer = options.Serializer ?? DefaultSerializer.Instance;
             _logger = options.LoggerFactory?.CreateLogger(GetType()) ?? NullLogger<SshNetFileStorage>.Instance;
         }
 
         public SshNetFileStorage(Builder<SshNetFileStorageOptionsBuilder, SshNetFileStorageOptions> config)
             : this(config(new SshNetFileStorageOptionsBuilder()).Build()) { }
-        
+
         ISerializer IHaveSerializer.Serializer => _serializer;
 
         public async Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default(CancellationToken)) {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
 
+            EnsureClientConnected();
+
             try {
-                using (var client = new SftpClient(_connectionInfo)) {
-                    client.Connect();
+                var stream = new MemoryStream();
+                await Task.Factory.FromAsync(_client.BeginDownloadFile(NormalizePath(path), stream, null, null), _client.EndDownloadFile).AnyContext();
+                stream.Seek(0, SeekOrigin.Begin);
 
-                    var stream = new MemoryStream();
-                    await Task.Factory.FromAsync(client.BeginDownloadFile(NormalizePath(path), stream, null, null), client.EndDownloadFile).AnyContext();
-                    stream.Seek(0, SeekOrigin.Begin);
-
-                    return stream;
-                }
+                return stream;
             } catch (SftpPathNotFoundException ex) {
                 if (_logger.IsEnabled(LogLevel.Trace))
                     _logger.LogTrace(ex, "Error trying to get file stream: {Path}", path);
@@ -58,18 +59,16 @@ namespace Foundatio.Storage {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
 
-            try {
-                using (var client = new SftpClient(_connectionInfo)) {
-                    client.Connect();
+            EnsureClientConnected();
 
-                    var file = client.Get(NormalizePath(path));
+            try {
+                var file = _client.Get(NormalizePath(path));
                     return Task.FromResult(new FileSpec {
                         Path = file.FullName.TrimStart('/'),
                         Created = file.LastWriteTimeUtc,
                         Modified = file.LastWriteTimeUtc,
                         Size = file.Length
                     });
-                }
             } catch (SftpPathNotFoundException ex) {
                 if (_logger.IsEnabled(LogLevel.Trace))
                     _logger.LogTrace(ex, "Error trying to getting file info: {Path}", path);
@@ -82,10 +81,8 @@ namespace Foundatio.Storage {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
 
-            using (var client = new SftpClient(_connectionInfo)) {
-                client.Connect();
-                return Task.FromResult(client.Exists(NormalizePath(path)));
-            }
+            EnsureClientConnected();
+            return Task.FromResult(_client.Exists(NormalizePath(path)));
         }
 
         public async Task<bool> SaveFileAsync(string path, Stream stream, CancellationToken cancellationToken = default(CancellationToken)) {
@@ -96,12 +93,10 @@ namespace Foundatio.Storage {
                 throw new ArgumentNullException(nameof(stream));
 
             path = NormalizePath(path);
-            using (var client = new SftpClient(_connectionInfo)) {
-                client.Connect();
+            EnsureClientConnected();
+            EnsureDirectoryExists(path);
 
-                EnsureDirectoryExists(client, path);
-                await Task.Factory.FromAsync(client.BeginUploadFile(stream, path, null, null), client.EndUploadFile).AnyContext();
-            }
+            await Task.Factory.FromAsync(_client.BeginUploadFile(stream, path, null, null), _client.EndUploadFile).AnyContext();
 
             return true;
         }
@@ -113,12 +108,9 @@ namespace Foundatio.Storage {
                 throw new ArgumentNullException(nameof(newPath));
 
             newPath = NormalizePath(newPath);
-            using (var client = new SftpClient(_connectionInfo)) {
-                client.Connect();
-
-                EnsureDirectoryExists(client, newPath);
-                client.RenameFile(NormalizePath(path), newPath, true);
-            }
+            EnsureClientConnected();
+            EnsureDirectoryExists(newPath);
+            _client.RenameFile(NormalizePath(path), newPath, true);
 
             return Task.FromResult(true);
         }
@@ -141,11 +133,10 @@ namespace Foundatio.Storage {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
 
+            EnsureClientConnected();
+
             try {
-                using (var client = new SftpClient(_connectionInfo)) {
-                    client.Connect();
-                    client.DeleteFile(NormalizePath(path));
-                }
+                _client.DeleteFile(NormalizePath(path));
             } catch (SftpPathNotFoundException ex) {
                 _logger.LogDebug(ex, "Error trying to delete file: {Path}.", path);
                 return Task.FromResult(false);
@@ -165,19 +156,15 @@ namespace Foundatio.Storage {
             if (limit.HasValue && limit.Value <= 0)
                 return new List<FileSpec>();
 
+            var list = new List<FileSpec>();
             var criteria = GetRequestCriteria(NormalizePath(searchPattern));
 
-            var list = new List<FileSpec>();
+            EnsureClientConnected();
+            if (!String.IsNullOrEmpty(criteria.Prefix) && !_client.Exists(criteria.Prefix))
+                return list;
 
-            using (var client = new SftpClient(_connectionInfo)) {
-                client.Connect();
-
-                if (!String.IsNullOrEmpty(criteria.Prefix) && !client.Exists(criteria.Prefix))
-                    return list;
-
-                // NOTE: This could be very expensive the larger the directory structure you have as we aren't efficiently doing paging.
-                await GetFileListRecursivelyAsync(client, criteria.Prefix, criteria.Pattern, list).AnyContext();
-            }
+            // NOTE: This could be very expensive the larger the directory structure you have as we aren't efficiently doing paging.
+            await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list).AnyContext();
 
             if (skip.HasValue)
                 list = list.Skip(skip.Value).ToList();
@@ -188,14 +175,14 @@ namespace Foundatio.Storage {
             return list;
         }
 
-        private static async Task GetFileListRecursivelyAsync(SftpClient client, string prefix, Regex pattern, List<FileSpec> list) {
-            var files = await Task.Factory.FromAsync(client.BeginListDirectory(prefix, null, null), client.EndListDirectory).AnyContext();
+        private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, List<FileSpec> list) {
+            var files = await Task.Factory.FromAsync(_client.BeginListDirectory(prefix, null, null), _client.EndListDirectory).AnyContext();
             foreach (var file in files) {
                 if (file.IsDirectory) {
                     if (file.Name == "." || file.Name == "..")
                         continue;
 
-                    await GetFileListRecursivelyAsync(client, String.Concat(prefix, "/", file.Name), pattern, list).AnyContext();
+                    await GetFileListRecursivelyAsync(String.Concat(prefix, "/", file.Name), pattern, list).AnyContext();
                     continue;
                 }
 
@@ -254,17 +241,22 @@ namespace Foundatio.Storage {
             return new ConnectionInfo(uri.Host, port, username, authenticationMethods.ToArray());
         }
 
-        private void EnsureDirectoryExists(SftpClient client, string path) {
+        private void EnsureClientConnected() {
+            if (!_client.IsConnected)
+                _client.Connect();
+        }
+
+        private void EnsureDirectoryExists(string path) {
             var directory = NormalizePath(Path.GetDirectoryName(path));
-            if (String.IsNullOrEmpty(directory) || client.Exists(directory))
+            if (String.IsNullOrEmpty(directory) || _client.Exists(directory))
                 return;
 
             var folderSegments = directory.Split(new [] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string currentDirectory = String.Empty;
             foreach (string segment in folderSegments) {
                 currentDirectory = String.Concat(currentDirectory, "/", segment);
-                if (!client.Exists(currentDirectory))
-                    client.CreateDirectory(currentDirectory);
+                if (!_client.Exists(currentDirectory))
+                    _client.CreateDirectory(currentDirectory);
             }
         }
 
@@ -295,7 +287,12 @@ namespace Foundatio.Storage {
             };
         }
 
-        public void Dispose() {}
+        public void Dispose() {
+            if (_client.IsConnected)
+                _client.Disconnect();
+
+            _client.Dispose();
+        }
     }
 }
 
