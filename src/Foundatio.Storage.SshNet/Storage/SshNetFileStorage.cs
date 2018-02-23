@@ -189,11 +189,12 @@ namespace Foundatio.Storage {
                 if (!file.IsRegularFile)
                     continue;
 
-                if (pattern != null && !pattern.IsMatch(file.Name))
+                string path = file.FullName.TrimStart('/');
+                if (pattern != null && !pattern.IsMatch(path))
                     continue;
 
                 list.Add(new FileSpec {
-                    Path = file.FullName.TrimStart('/'),
+                    Path = path,
                     Created = file.LastWriteTimeUtc,
                     Modified = file.LastWriteTimeUtc,
                     Size = file.Length
