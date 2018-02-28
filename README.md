@@ -1,6 +1,6 @@
 ![Foundatio](https://raw.githubusercontent.com/FoundatioFx/Foundatio/master/media/foundatio.png "Foundatio")
 
-[![Build status](https://ci.appveyor.com/api/projects/status/abateixcmgqxoj8f?svg=true)](https://ci.appveyor.com/project/Exceptionless/foundatio-azurestorage-agg58)
+[![Build status](https://ci.appveyor.com/api/projects/status/6u9px24obf51nkom?svg=true)](https://ci.appveyor.com/project/Exceptionless/foundatio-storage-sshnet)
 [![NuGet Version](http://img.shields.io/nuget/v/Foundatio.Storage.SshNet.svg?style=flat)](https://www.nuget.org/packages/Foundatio.Storage.SshNet/)
 [![Slack Status](https://slack.exceptionless.com/badge.svg)](https://slack.exceptionless.com)
 
@@ -27,12 +27,13 @@ To summarize, if you want pain free development and testing while allowing your 
 
 ## Implementations
 - [Redis](https://github.com/FoundatioFx/Foundatio.Redis) - Caching, Queues, Messaging, Locks, Metrics
-- [Azure Storage](https://github.com/FoundatioFx/Foundatio.Storage.SshNet) - Storage, Queues
+- [Azure Storage](https://github.com/FoundatioFx/Foundatio.AzureStorage) - Storage, Queues
 - [Azure ServiceBus](https://github.com/FoundatioFx/Foundatio.AzureServiceBus) - Queues, Messaging
 - [AWS](https://github.com/FoundatioFx/Foundatio.AWS) - Storage, Queues, Metrics
 - [RabbitMQ](https://github.com/FoundatioFx/Foundatio.RabbitMQ) - Queues
 - [Minio](https://github.com/FoundatioFx/Foundatio.Minio) - Storage
 - [Aliyun](https://github.com/FoundatioFx/Foundatio.Aliyun) - Storage
+- [SshNet](https://github.com/FoundatioFx/Foundatio.Storage.SshNet) - Storage
 
 ## Getting Started (Development)
 
@@ -73,7 +74,7 @@ Queues offer First In, First Out (FIFO) message delivery. We provide four differ
 1. [InMemoryQueue](https://github.com/FoundatioFx/Foundatio/blob/master/src/Foundatio/Queues/InMemoryQueue.cs): An in memory queue implementation. This queue implementation is only valid for the lifetime of the process.
 2. [RedisQueue](https://github.com/FoundatioFx/Foundatio.Redis/blob/master/src/Foundatio.Redis/Queues/RedisQueue.cs): An Redis queue implementation.
 3. [AzureServiceBusQueue](https://github.com/FoundatioFx/Foundatio.AzureServiceBus/blob/master/src/Foundatio.AzureServiceBus/Queues/AzureServiceBusQueue.cs): An Azure Service Bus Queue implementation.
-4. [AzureStorageQueue](https://github.com/FoundatioFx/Foundatio.Storage.SshNet/blob/master/src/Foundatio.Storage.SshNet/Queues/AzureStorageQueue.cs): An Azure Storage Queue implementation.
+4. [AzureStorageQueue](https://github.com/FoundatioFx/Foundatio.AzureStorage/blob/master/src/Foundatio.AzureStorage/Queues/AzureStorageQueue.cs): An Azure Storage Queue implementation.
 
 #### Sample
 
@@ -271,10 +272,11 @@ We provide different file storage implementations that derive from the [`IFileSt
 
 1. [InMemoryFileStorage](https://github.com/FoundatioFx/Foundatio/blob/master/src/Foundatio/Storage/InMemoryFileStorage.cs): An in memory file implementation. This file storage implementation is only valid for the lifetime of the process.
 2. [FolderFileStorage](https://github.com/FoundatioFx/Foundatio/blob/master/src/Foundatio/Storage/FolderFileStorage.cs): An file storage implementation that uses the hard drive for storage.
-3. [AzureFileStorage](https://github.com/FoundatioFx/Foundatio.Storage.SshNet/blob/master/src/Foundatio.Storage.SshNet/Storage/AzureFileStorage.cs): An Azure Blob storage implementation.
+3. [AzureFileStorage](https://github.com/FoundatioFx/Foundatio.AzureStorage/blob/master/src/Foundatio.AzureStorage/Storage/AzureFileStorage.cs): An Azure Blob storage implementation.
 4. [S3FileStorage](https://github.com/FoundatioFx/Foundatio.AWS/blob/master/src/Foundatio.AWS/Storage/S3FileStorage.cs): An AWS S3 file storage implementation.
-5. [Minio](https://github.com/FoundatioFx/Foundatio.Minio/blob/master/src/Foundatio.Minio/Storage/MinioFileStorage.cs) An Minio file storage implementation.
+5. [MinioFileStorage](https://github.com/FoundatioFx/Foundatio.Minio/blob/master/src/Foundatio.Minio/Storage/MinioFileStorage.cs) An Minio file storage implementation.
 6. [AliyunFileStorage](https://github.com/FoundatioFx/Foundatio.Aliyun/blob/master/src/Foundatio.Aliyun/Storage/AliyunFileStorage.cs): An Aliyun file storage implementation.
+7. [SshNetFileStorage](https://github.com/FoundatioFx/Foundatio.Storage.SshNet/blob/master/src/Foundatio.Storage.SshNet/Storage/SshNetFileStorage.cs): An SFTP file storage implementation.
 
 We recommend using all of the `IFileStorage` implementations as singletons.
 
