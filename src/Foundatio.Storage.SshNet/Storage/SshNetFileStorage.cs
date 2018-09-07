@@ -35,7 +35,7 @@ namespace Foundatio.Storage {
 
         ISerializer IHaveSerializer.Serializer => _serializer;
 
-        public async Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default(CancellationToken)) {
+        public async Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default) {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
 
@@ -85,7 +85,7 @@ namespace Foundatio.Storage {
             return Task.FromResult(_client.Exists(NormalizePath(path)));
         }
 
-        public async Task<bool> SaveFileAsync(string path, Stream stream, CancellationToken cancellationToken = default(CancellationToken)) {
+        public async Task<bool> SaveFileAsync(string path, Stream stream, CancellationToken cancellationToken = default) {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
 
@@ -101,7 +101,7 @@ namespace Foundatio.Storage {
             return true;
         }
 
-        public Task<bool> RenameFileAsync(string path, string newPath, CancellationToken cancellationToken = default(CancellationToken)) {
+        public Task<bool> RenameFileAsync(string path, string newPath, CancellationToken cancellationToken = default) {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
             if (String.IsNullOrEmpty(newPath))
@@ -115,7 +115,7 @@ namespace Foundatio.Storage {
             return Task.FromResult(true);
         }
 
-        public async Task<bool> CopyFileAsync(string path, string targetPath, CancellationToken cancellationToken = default(CancellationToken)) {
+        public async Task<bool> CopyFileAsync(string path, string targetPath, CancellationToken cancellationToken = default) {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
             if (String.IsNullOrEmpty(targetPath))
@@ -129,7 +129,7 @@ namespace Foundatio.Storage {
             }
         }
 
-        public Task<bool> DeleteFileAsync(string path, CancellationToken cancellationToken = default(CancellationToken)) {
+        public Task<bool> DeleteFileAsync(string path, CancellationToken cancellationToken = default) {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentNullException(nameof(path));
 
@@ -145,14 +145,14 @@ namespace Foundatio.Storage {
             return Task.FromResult(true);
         }
 
-        public async Task DeleteFilesAsync(string searchPattern = null, CancellationToken cancellationToken = default(CancellationToken)) {
+        public async Task DeleteFilesAsync(string searchPattern = null, CancellationToken cancellationToken = default) {
             var files = await GetFileListAsync(searchPattern, cancellationToken: cancellationToken).AnyContext();
             // TODO: We could batch this, but we should ensure the batch isn't thousands of files.
             foreach (var file in files)
                 await DeleteFileAsync(file.Path).AnyContext();
         }
 
-        public async Task<IEnumerable<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default(CancellationToken)) {
+        public async Task<IEnumerable<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default) {
             if (limit.HasValue && limit.Value <= 0)
                 return new List<FileSpec>();
 
@@ -209,7 +209,7 @@ namespace Foundatio.Storage {
             if (!Uri.TryCreate(options.ConnectionString, UriKind.Absolute, out var uri) || String.IsNullOrEmpty(uri?.UserInfo))
                 throw new ArgumentException("Unable to parse connection string uri", nameof(options.ConnectionString));
 
-            var userParts = uri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] userParts = uri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
             string username = userParts.First();
             string password = userParts.Length > 0 ? userParts[1] : null;
             int port = uri.Port > 0 ? uri.Port : 22;
@@ -228,7 +228,7 @@ namespace Foundatio.Storage {
                 if (!Uri.TryCreate(options.Proxy, UriKind.Absolute, out var proxyUri) || String.IsNullOrEmpty(proxyUri?.UserInfo))
                     throw new ArgumentException("Unable to parse proxy uri", nameof(options.Proxy));
 
-                var proxyParts = proxyUri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                string[] proxyParts = proxyUri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
                 string proxyUsername = proxyParts.First();
                 string proxyPassword = proxyParts.Length > 0 ? proxyParts[1] : null;
 
@@ -248,11 +248,11 @@ namespace Foundatio.Storage {
         }
 
         private void EnsureDirectoryExists(string path) {
-            var directory = NormalizePath(Path.GetDirectoryName(path));
+            string directory = NormalizePath(Path.GetDirectoryName(path));
             if (String.IsNullOrEmpty(directory) || _client.Exists(directory))
                 return;
 
-            var folderSegments = directory.Split(new [] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] folderSegments = directory.Split(new [] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string currentDirectory = String.Empty;
             foreach (string segment in folderSegments) {
                 currentDirectory = String.Concat(currentDirectory, "/", segment);
