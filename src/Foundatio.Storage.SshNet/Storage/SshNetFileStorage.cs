@@ -211,18 +211,22 @@ namespace Foundatio.Storage {
 
             string[] userParts = uri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
             string username = userParts.First();
+            string usernameUnescaped = Uri.UnescapeDataString(username);
+
             string password = userParts.Length > 0 ? userParts[1] : null;
             int port = uri.Port > 0 ? uri.Port : 22;
-
+            
             var authenticationMethods = new List<AuthenticationMethod>();
-            if (!String.IsNullOrEmpty(password))
-                authenticationMethods.Add(new PasswordAuthenticationMethod(username, password));
+            if (!String.IsNullOrEmpty(password)) {
+                string passwordUnescaped = Uri.UnescapeDataString(password);
+                authenticationMethods.Add(new PasswordAuthenticationMethod(usernameUnescaped, passwordUnescaped));
+            }
             
             if (options.PrivateKey != null)
-                authenticationMethods.Add(new PrivateKeyAuthenticationMethod(username, new PrivateKeyFile(options.PrivateKey, options.PrivateKeyPassPhrase)));
+                authenticationMethods.Add(new PrivateKeyAuthenticationMethod(usernameUnescaped, new PrivateKeyFile(options.PrivateKey, options.PrivateKeyPassPhrase)));
             
             if (authenticationMethods.Count == 0)
-                authenticationMethods.Add(new NoneAuthenticationMethod(username));
+                authenticationMethods.Add(new NoneAuthenticationMethod(usernameUnescaped));
 
             if (!String.IsNullOrEmpty(options.Proxy)) {
                 if (!Uri.TryCreate(options.Proxy, UriKind.Absolute, out var proxyUri) || String.IsNullOrEmpty(proxyUri?.UserInfo))
@@ -236,10 +240,10 @@ namespace Foundatio.Storage {
                 if (proxyType == ProxyTypes.None && proxyUri.Scheme != null && proxyUri.Scheme.StartsWith("http"))
                     proxyType = ProxyTypes.Http;
 
-                return new ConnectionInfo(uri.Host, port, username, proxyType, proxyUri.Host, proxyUri.Port, proxyUsername, proxyPassword, authenticationMethods.ToArray());
+                return new ConnectionInfo(uri.Host, port, usernameUnescaped, proxyType, proxyUri.Host, proxyUri.Port, proxyUsername, proxyPassword, authenticationMethods.ToArray());
             }
 
-            return new ConnectionInfo(uri.Host, port, username, authenticationMethods.ToArray());
+            return new ConnectionInfo(uri.Host, port, usernameUnescaped, authenticationMethods.ToArray());
         }
 
         private void EnsureClientConnected() {
