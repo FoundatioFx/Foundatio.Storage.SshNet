@@ -210,13 +210,15 @@ namespace Foundatio.Storage {
                 throw new ArgumentException("Unable to parse connection string uri", nameof(options.ConnectionString));
 
             string[] userParts = uri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
-            string username = userParts.First();
-            string password = userParts.Length > 0 ? userParts[1] : null;
+            string username = Uri.UnescapeDataString(userParts.First());
+            string password = Uri.UnescapeDataString(userParts.Length > 0 ? userParts[1] : String.Empty);
             int port = uri.Port > 0 ? uri.Port : 22;
-
+            
             var authenticationMethods = new List<AuthenticationMethod>();
-            if (!String.IsNullOrEmpty(password))
+            if (!String.IsNullOrEmpty(password)) {
+              
                 authenticationMethods.Add(new PasswordAuthenticationMethod(username, password));
+            }
             
             if (options.PrivateKey != null)
                 authenticationMethods.Add(new PrivateKeyAuthenticationMethod(username, new PrivateKeyFile(options.PrivateKey, options.PrivateKeyPassPhrase)));
