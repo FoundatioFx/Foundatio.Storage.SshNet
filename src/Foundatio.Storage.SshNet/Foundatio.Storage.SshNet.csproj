@@ -4,9 +4,9 @@
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <PackageTags>;File;Distributed;Storage;SFTP;SshNet</PackageTags>
   </PropertyGroup>
-  
+
   <ItemGroup>
-    <PackageReference Include="Foundatio" Version="7.2.1867-pre" />
+    <PackageReference Include="Foundatio" Version="7.2.1887-pre" />
     <PackageReference Include="SSH.NET" Version="2016.1.0" />
   </ItemGroup>
 </Project>
