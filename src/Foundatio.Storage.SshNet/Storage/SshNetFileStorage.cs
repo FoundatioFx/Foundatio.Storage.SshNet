@@ -186,7 +186,7 @@ namespace Foundatio.Storage {
                 Success = true,
                 HasMore = hasMore,
                 Files = list,
-                NextPageFunc = r => hasMore ? GetFiles(searchPattern, page + 1, pageSize, cancellationToken) : (Func<PagedFileListResult, Task<NextPageResult>>)null
+                NextPageFunc = hasMore ? r => GetFiles(searchPattern, page + 1, pageSize, cancellationToken) : (Func<PagedFileListResult, Task<NextPageResult>>)null
             };
         }
 
