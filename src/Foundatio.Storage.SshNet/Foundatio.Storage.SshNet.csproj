@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Foundatio" Version="7.2.1905-pre" />
+    <PackageReference Include="Foundatio" Version="7.2.1933-pre" />
     <PackageReference Include="SSH.NET" Version="2016.1.0" />
   </ItemGroup>
 </Project>

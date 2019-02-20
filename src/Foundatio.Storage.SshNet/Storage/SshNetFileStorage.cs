@@ -50,7 +50,7 @@ namespace Foundatio.Storage {
             } catch (SftpPathNotFoundException ex) {
                 if (_logger.IsEnabled(LogLevel.Trace))
                     _logger.LogTrace(ex, "Error trying to get file stream: {Path}", path);
-                
+
                 return null;
             }
         }
@@ -179,10 +179,15 @@ namespace Foundatio.Storage {
             bool hasMore = false;
             if (list.Count == pagingLimit) {
                 hasMore = true;
-                list.RemoveAt(pagingLimit);
+                list.RemoveAt(pagingLimit - 1);
             }
 
-            return new NextPageResult { Success = true, HasMore = hasMore, Files = list, NextPageFunc = r => GetFiles(searchPattern, page + 1, pageSize, cancellationToken) };
+            return new NextPageResult {
+                Success = true,
+                HasMore = hasMore,
+                Files = list,
+                NextPageFunc = r => hasMore ? GetFiles(searchPattern, page + 1, pageSize, cancellationToken) : (Func<PagedFileListResult, Task<NextPageResult>>)null
+            };
         }
 
         private async Task<IEnumerable<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default) {
@@ -246,16 +251,16 @@ namespace Foundatio.Storage {
             string username = Uri.UnescapeDataString(userParts.First());
             string password = Uri.UnescapeDataString(userParts.Length > 0 ? userParts[1] : String.Empty);
             int port = uri.Port > 0 ? uri.Port : 22;
-            
+
             var authenticationMethods = new List<AuthenticationMethod>();
             if (!String.IsNullOrEmpty(password)) {
-              
+
                 authenticationMethods.Add(new PasswordAuthenticationMethod(username, password));
             }
-            
+
             if (options.PrivateKey != null)
                 authenticationMethods.Add(new PrivateKeyAuthenticationMethod(username, new PrivateKeyFile(options.PrivateKey, options.PrivateKeyPassPhrase)));
-            
+
             if (authenticationMethods.Count == 0)
                 authenticationMethods.Add(new NoneAuthenticationMethod(username));
 
