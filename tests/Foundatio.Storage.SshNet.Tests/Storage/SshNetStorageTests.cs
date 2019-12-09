@@ -20,6 +20,29 @@ namespace Foundatio.SshNet.Tests.Storage {
         }
 
         [Fact]
+        public void CanCreateSshNetFileStorageWithoutConnectionStringPassword() {
+            //Arrange
+            var options = new SshNetFileStorageOptionsBuilder()
+                .ConnectionString("sftp://username@host")
+                .Build();
+            
+            //Act
+            var storage = new SshNetFileStorage(options);
+        }
+        
+        [Fact]
+        public void CanCreateSshNetFileStorageWithoutProxyPassword() {
+            //Arrange
+            var options = new SshNetFileStorageOptionsBuilder()
+                .ConnectionString("sftp://username@host")
+                .Proxy("proxy://username@host")
+                .Build();
+
+            //Act
+            var storage = new SshNetFileStorage(options);
+        }
+
+        [Fact]
         public override Task CanGetEmptyFileListOnMissingDirectoryAsync() {
             return base.CanGetEmptyFileListOnMissingDirectoryAsync();
         }

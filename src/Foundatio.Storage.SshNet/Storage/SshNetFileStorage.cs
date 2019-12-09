@@ -249,7 +249,7 @@ namespace Foundatio.Storage {
 
             string[] userParts = uri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
             string username = Uri.UnescapeDataString(userParts.First());
-            string password = Uri.UnescapeDataString(userParts.Length > 0 ? userParts[1] : String.Empty);
+            string password = Uri.UnescapeDataString(userParts.Length > 1 ? userParts[1] : String.Empty);
             int port = uri.Port > 0 ? uri.Port : 22;
 
             var authenticationMethods = new List<AuthenticationMethod>();
@@ -270,7 +270,7 @@ namespace Foundatio.Storage {
 
                 string[] proxyParts = proxyUri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
                 string proxyUsername = proxyParts.First();
-                string proxyPassword = proxyParts.Length > 0 ? proxyParts[1] : null;
+                string proxyPassword = proxyParts.Length > 1 ? proxyParts[1] : null;
 
                 var proxyType = options.ProxyType;
                 if (proxyType == ProxyTypes.None && proxyUri.Scheme != null && proxyUri.Scheme.StartsWith("http"))
