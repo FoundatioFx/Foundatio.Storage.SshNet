@@ -1,6 +1,6 @@
 ![Foundatio](https://raw.githubusercontent.com/FoundatioFx/Foundatio/master/media/foundatio.png "Foundatio")
 
-[![Build status](https://ci.appveyor.com/api/projects/status/6u9px24obf51nkom?svg=true)](https://ci.appveyor.com/project/Exceptionless/foundatio-storage-sshnet)
+[![Build status](https://github.com/FoundatioFx/Foundatio.Storage.SshNet/workflows/Build/badge.svg)](https://github.com/FoundatioFx/Foundatio.Storage.SshNet/actions)
 [![NuGet Version](http://img.shields.io/nuget/v/Foundatio.Storage.SshNet.svg?style=flat)](https://www.nuget.org/packages/Foundatio.Storage.SshNet/)
 [![Slack Status](https://slack.exceptionless.com/badge.svg)](https://slack.exceptionless.com)
 
