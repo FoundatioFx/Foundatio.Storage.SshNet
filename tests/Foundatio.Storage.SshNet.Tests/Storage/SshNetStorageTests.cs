@@ -103,6 +103,11 @@ namespace Foundatio.SshNet.Tests.Storage {
         }
 
         [Fact]
+        public override Task CanDeleteFolderWithMultiFolderWildcardsAsync() {
+            return base.CanDeleteFolderWithMultiFolderWildcardsAsync();
+        }
+
+        [Fact]
         public override Task CanDeleteSpecificFilesAsync() {
             return base.CanDeleteSpecificFilesAsync();
         }
