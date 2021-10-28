@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  sftp:
+    image: atmoz/sftp:alpine
+    volumes:
+        - .storage:/home/foundatio
+    ports:
+        - 2222:22
+    command: foundatio:bjDV*m8w8%T^Zz1akiK:1001

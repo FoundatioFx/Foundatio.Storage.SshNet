@@ -254,7 +254,6 @@ namespace Foundatio.Storage {
 
             var authenticationMethods = new List<AuthenticationMethod>();
             if (!String.IsNullOrEmpty(password)) {
-
                 authenticationMethods.Add(new PasswordAuthenticationMethod(username, password));
             }
 
