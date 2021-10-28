@@ -5,4 +5,4 @@ services:
     image: atmoz/sftp:alpine
     ports:
         - 2222:22
-    command: foundatio:bjDV*m8w8%T^Zz1akiK:::storage
+    command: foundatio:password:::storage
