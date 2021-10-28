@@ -24,8 +24,6 @@ jobs:
       run: dotnet build --configuration Release
     - name: Start Services
       run: docker compose up -d
-    - name: Set Permissions
-      run: chmod 777 .storage
     - name: Run Tests
       run: dotnet test --configuration Release --no-build
     - name: Package
