@@ -16,7 +16,7 @@ namespace Foundatio.SshNet.Tests.Storage {
             if (String.IsNullOrEmpty(connectionString))
                 return null;
 
-            return new SshNetFileStorage(o => o.ConnectionString(connectionString).LoggerFactory(Log));
+            return new ScopedFileStorage(new SshNetFileStorage(o => o.ConnectionString(connectionString).LoggerFactory(Log)), "storage");
         }
 
         [Fact]

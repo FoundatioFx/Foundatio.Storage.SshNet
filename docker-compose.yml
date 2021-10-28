@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  sftp:
+    image: atmoz/sftp:alpine
+    ports:
+        - 2222:22
+    command: foundatio:password:::storage
