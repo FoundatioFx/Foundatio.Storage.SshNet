@@ -191,7 +191,7 @@ namespace Foundatio.Storage {
         }
 
         private async Task<IEnumerable<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default) {
-            if (limit.HasValue && limit.Value <= 0)
+            if (limit is <= 0)
                 return new List<FileSpec>();
 
             var list = new List<FileSpec>();
@@ -202,7 +202,8 @@ namespace Foundatio.Storage {
                 return list;
 
             // NOTE: This could be very expensive the larger the directory structure you have as we aren't efficiently doing paging.
-            await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list).AnyContext();
+            int? recordsToReturn = limit.HasValue ? skip.GetValueOrDefault() * limit + limit : null;
+            await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list, recordsToReturn).AnyContext();
 
             if (skip.HasValue)
                 list = list.Skip(skip.Value).ToList();
@@ -213,14 +214,17 @@ namespace Foundatio.Storage {
             return list;
         }
 
-        private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, List<FileSpec> list) {
+        private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, List<FileSpec> list, int? recordsToReturn = null) {
             var files = await Task.Factory.FromAsync(_client.BeginListDirectory(prefix, null, null), _client.EndListDirectory).AnyContext();
-            foreach (var file in files) {
+            foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderBy(f => f.IsRegularFile)) {
+                if (recordsToReturn.HasValue && list.Count >= recordsToReturn)
+                    break;
+
                 if (file.IsDirectory) {
-                    if (file.Name == "." || file.Name == "..")
+                    if (file.Name is "." or "..")
                         continue;
 
-                    await GetFileListRecursivelyAsync(String.Concat(prefix, "/", file.Name), pattern, list).AnyContext();
+                    await GetFileListRecursivelyAsync(String.Concat(prefix, "/", file.Name), pattern, list, recordsToReturn).AnyContext();
                     continue;
                 }
 
