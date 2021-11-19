@@ -214,9 +214,9 @@ namespace Foundatio.Storage {
             return list;
         }
 
-        private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, List<FileSpec> list, int? recordsToReturn = null) {
+        private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null) {
             var files = await Task.Factory.FromAsync(_client.BeginListDirectory(prefix, null, null), _client.EndListDirectory).AnyContext();
-            foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderBy(f => f.IsRegularFile)) {
+            foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderBy(f => f.IsRegularFile).ThenBy(f => f.Name)) {
                 if (recordsToReturn.HasValue && list.Count >= recordsToReturn)
                     break;
 
