@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -162,8 +163,6 @@ namespace Foundatio.Storage {
             if (pageSize <= 0)
                 return PagedFileListResult.Empty;
 
-            searchPattern = NormalizePath(searchPattern);
-
             var result = new PagedFileListResult(r => GetFiles(searchPattern, 1, pageSize, cancellationToken));
             await result.NextPageAsync().AnyContext();
             return result;
@@ -173,7 +172,7 @@ namespace Foundatio.Storage {
             int pagingLimit = pageSize;
             int skip = (page - 1) * pagingLimit;
             if (pagingLimit < Int32.MaxValue)
-                pagingLimit = pagingLimit + 1;
+                pagingLimit++;
 
             var list = (await GetFileListAsync(searchPattern, pagingLimit, skip, cancellationToken).AnyContext()).ToList();
             bool hasMore = false;
@@ -195,7 +194,7 @@ namespace Foundatio.Storage {
                 return new List<FileSpec>();
 
             var list = new List<FileSpec>();
-            var criteria = GetRequestCriteria(NormalizePath(searchPattern));
+            var criteria = GetRequestCriteria(searchPattern);
 
             EnsureClientConnected();
             if (!String.IsNullOrEmpty(criteria.Prefix) && !_client.Exists(criteria.Prefix))
@@ -257,9 +256,8 @@ namespace Foundatio.Storage {
             int port = uri.Port > 0 ? uri.Port : 22;
 
             var authenticationMethods = new List<AuthenticationMethod>();
-            if (!String.IsNullOrEmpty(password)) {
+            if (!String.IsNullOrEmpty(password))
                 authenticationMethods.Add(new PasswordAuthenticationMethod(username, password));
-            }
 
             if (options.PrivateKey != null)
                 authenticationMethods.Add(new PrivateKeyAuthenticationMethod(username, new PrivateKeyFile(options.PrivateKey, options.PrivateKeyPassPhrase)));
@@ -290,18 +288,31 @@ namespace Foundatio.Storage {
                 _client.Connect();
         }
 
+        private readonly ConcurrentDictionary<string, object> _directoryChecks = new();
         private void EnsureDirectoryExists(string path) {
-            string directory = NormalizePath(Path.GetDirectoryName(path));
-            if (String.IsNullOrEmpty(directory) || _client.Exists(directory))
+            if (_directoryChecks.ContainsKey(path))
                 return;
 
-            string[] folderSegments = directory.Split(new [] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            string directory = NormalizePath(Path.GetDirectoryName(path));
+            string[] folderSegments = directory.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string currentDirectory = String.Empty;
+
+            if (String.IsNullOrEmpty(directory) || _client.Exists(directory)) {
+                foreach (string segment in folderSegments) {
+                    currentDirectory = String.Concat(currentDirectory, "/", segment);
+                    _directoryChecks.TryAdd(currentDirectory, null);
+                }
+                return;
+            }
+
             foreach (string segment in folderSegments) {
                 currentDirectory = String.Concat(currentDirectory, "/", segment);
                 if (!_client.Exists(currentDirectory))
                     _client.CreateDirectory(currentDirectory);
+                _directoryChecks.TryAdd(currentDirectory, null);
             }
+
+            _directoryChecks.TryAdd(path, null);
         }
 
         private string NormalizePath(string path) {
@@ -314,19 +325,29 @@ namespace Foundatio.Storage {
         }
 
         private SearchCriteria GetRequestCriteria(string searchPattern) {
-            Regex patternRegex = null;
-            searchPattern = searchPattern?.Replace('\\', '/');
+            if (String.IsNullOrEmpty(searchPattern))
+                return new SearchCriteria { Prefix = String.Empty };
 
-            string prefix = searchPattern;
+            searchPattern = NormalizePath(searchPattern);
             int wildcardPos = searchPattern?.IndexOf('*') ?? -1;
-            if (searchPattern != null && wildcardPos >= 0) {
+            bool hasWildcard = wildcardPos >= 0;
+
+            string prefix;
+            Regex patternRegex;
+
+            if (hasWildcard) {
                 patternRegex = new Regex("^" + Regex.Escape(searchPattern).Replace("\\*", ".*?") + "$");
+                string beforeWildcard = searchPattern.Substring(0, wildcardPos);
+                int slashPos = beforeWildcard.LastIndexOf('/');
+                prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
+            } else {
+                patternRegex = null; // = new Regex("^" + searchPattern + "$");
                 int slashPos = searchPattern.LastIndexOf('/');
                 prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
             }
 
             return new SearchCriteria {
-                Prefix = prefix ?? String.Empty,
+                Prefix = prefix,
                 Pattern = patternRegex
             };
         }
