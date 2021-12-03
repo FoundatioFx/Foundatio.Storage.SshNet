@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Renci.SshNet;
 using Renci.SshNet.Common;
+using Renci.SshNet.Sftp;
 
 namespace Foundatio.Storage {
     public class SshNetFileStorage : IFileStorage {
@@ -95,9 +95,13 @@ namespace Foundatio.Storage {
 
             path = NormalizePath(path);
             EnsureClientConnected();
-            EnsureDirectoryExists(path);
 
-            await Task.Factory.FromAsync(_client.BeginUploadFile(stream, path, null, null), _client.EndUploadFile).AnyContext();
+            try {
+                await Task.Factory.FromAsync(_client.BeginUploadFile(stream, path, null, null), _client.EndUploadFile).AnyContext();
+            } catch (SftpPathNotFoundException) {
+                CreateDirectory(path);
+                await Task.Factory.FromAsync(_client.BeginUploadFile(stream, path, null, null), _client.EndUploadFile).AnyContext();
+            }
 
             return true;
         }
@@ -110,8 +114,13 @@ namespace Foundatio.Storage {
 
             newPath = NormalizePath(newPath);
             EnsureClientConnected();
-            EnsureDirectoryExists(newPath);
-            _client.RenameFile(NormalizePath(path), newPath, true);
+
+            try {
+                _client.RenameFile(NormalizePath(path), newPath, true);
+            } catch (SftpPathNotFoundException) {
+                CreateDirectory(newPath);
+                _client.RenameFile(NormalizePath(path), newPath, true);
+            }
 
             return Task.FromResult(true);
         }
@@ -147,6 +156,14 @@ namespace Foundatio.Storage {
         }
 
         public async Task<int> DeleteFilesAsync(string searchPattern = null, CancellationToken cancellationToken = default) {
+            EnsureClientConnected();
+
+            if (searchPattern == null) {
+                return await DeleteDirectory("/", false);
+            } else if (searchPattern.EndsWith("/*")) {
+                return await DeleteDirectory(searchPattern.Substring(0, searchPattern.Length - 2), false);
+            }
+
             var files = await GetFileListAsync(searchPattern, cancellationToken: cancellationToken).AnyContext();
             int count = 0;
 
@@ -155,6 +172,38 @@ namespace Foundatio.Storage {
                 await DeleteFileAsync(file.Path, cancellationToken).AnyContext();
                 count++;
             }
+
+            return count;
+        }
+
+        private void CreateDirectory(string path) {
+            string directory = NormalizePath(Path.GetDirectoryName(path));
+            string[] folderSegments = directory.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            string currentDirectory = String.Empty;
+
+            foreach (string segment in folderSegments) {
+                currentDirectory = String.Concat(currentDirectory, "/", segment);
+                if (!_client.Exists(currentDirectory))
+                    _client.CreateDirectory(currentDirectory);
+            }
+        }
+
+        private async Task<int> DeleteDirectory(string path, bool includeSelf) {
+            int count = 0;
+
+            foreach (var file in await _client.ListDirectoryAsync(path)) {
+                if ((file.Name != ".") && (file.Name != "..")) {
+                    if (file.IsDirectory) {
+                        count += await DeleteDirectory(file.FullName, true);
+                    } else {
+                        _client.DeleteFile(file.FullName);
+                        count++;
+                    }
+                }
+            }
+
+            if (includeSelf)
+                _client.DeleteDirectory(path);
 
             return count;
         }
@@ -174,7 +223,7 @@ namespace Foundatio.Storage {
             if (pagingLimit < Int32.MaxValue)
                 pagingLimit++;
 
-            var list = (await GetFileListAsync(searchPattern, pagingLimit, skip, cancellationToken).AnyContext()).ToList();
+            var list = await GetFileListAsync(searchPattern, pagingLimit, skip, cancellationToken).AnyContext();
             bool hasMore = false;
             if (list.Count == pagingLimit) {
                 hasMore = true;
@@ -185,11 +234,11 @@ namespace Foundatio.Storage {
                 Success = true,
                 HasMore = hasMore,
                 Files = list,
-                NextPageFunc = hasMore ? r => GetFiles(searchPattern, page + 1, pageSize, cancellationToken) : (Func<PagedFileListResult, Task<NextPageResult>>)null
+                NextPageFunc = hasMore ? r => GetFiles(searchPattern, page + 1, pageSize, cancellationToken) : null
             };
         }
 
-        private async Task<IEnumerable<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default) {
+        private async Task<List<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default) {
             if (limit is <= 0)
                 return new List<FileSpec>();
 
@@ -197,12 +246,10 @@ namespace Foundatio.Storage {
             var criteria = GetRequestCriteria(searchPattern);
 
             EnsureClientConnected();
-            if (!String.IsNullOrEmpty(criteria.Prefix) && !_client.Exists(criteria.Prefix))
-                return list;
 
             // NOTE: This could be very expensive the larger the directory structure you have as we aren't efficiently doing paging.
             int? recordsToReturn = limit.HasValue ? skip.GetValueOrDefault() * limit + limit : null;
-            await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list, recordsToReturn).AnyContext();
+            await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list, recordsToReturn, cancellationToken).AnyContext();
 
             if (skip.HasValue)
                 list = list.Skip(skip.Value).ToList();
@@ -213,9 +260,22 @@ namespace Foundatio.Storage {
             return list;
         }
 
-        private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null) {
-            var files = await Task.Factory.FromAsync(_client.BeginListDirectory(prefix, null, null), _client.EndListDirectory).AnyContext();
+        private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null, CancellationToken cancellationToken = default) {
+            _logger.LogInformation($"Checking {prefix}...");
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            var files = new List<ISftpFile>();
+            try {
+                files.AddRange(await _client.ListDirectoryAsync(prefix, null).AnyContext());
+            } catch (SftpPathNotFoundException) {
+                return;
+            }
+
             foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderBy(f => f.IsRegularFile).ThenBy(f => f.Name)) {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
                 if (recordsToReturn.HasValue && list.Count >= recordsToReturn)
                     break;
 
@@ -223,7 +283,7 @@ namespace Foundatio.Storage {
                     if (file.Name is "." or "..")
                         continue;
 
-                    await GetFileListRecursivelyAsync(String.Concat(prefix, "/", file.Name), pattern, list, recordsToReturn).AnyContext();
+                    await GetFileListRecursivelyAsync(String.Concat(prefix, "/", file.Name), pattern, list, recordsToReturn, cancellationToken).AnyContext();
                     continue;
                 }
 
@@ -286,33 +346,6 @@ namespace Foundatio.Storage {
         private void EnsureClientConnected() {
             if (!_client.IsConnected)
                 _client.Connect();
-        }
-
-        private readonly ConcurrentDictionary<string, object> _directoryChecks = new();
-        private void EnsureDirectoryExists(string path) {
-            if (_directoryChecks.ContainsKey(path))
-                return;
-
-            string directory = NormalizePath(Path.GetDirectoryName(path));
-            string[] folderSegments = directory.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            string currentDirectory = String.Empty;
-
-            if (String.IsNullOrEmpty(directory) || _client.Exists(directory)) {
-                foreach (string segment in folderSegments) {
-                    currentDirectory = String.Concat(currentDirectory, "/", segment);
-                    _directoryChecks.TryAdd(currentDirectory, null);
-                }
-                return;
-            }
-
-            foreach (string segment in folderSegments) {
-                currentDirectory = String.Concat(currentDirectory, "/", segment);
-                if (!_client.Exists(currentDirectory))
-                    _client.CreateDirectory(currentDirectory);
-                _directoryChecks.TryAdd(currentDirectory, null);
-            }
-
-            _directoryChecks.TryAdd(path, null);
         }
 
         private string NormalizePath(string path) {

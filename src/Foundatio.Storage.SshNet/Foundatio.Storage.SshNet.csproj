@@ -1,13 +1,16 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\build\common.props" />
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <PackageTags>;File;Distributed;Storage;SFTP;SshNet</PackageTags>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\docker-compose.yml" Link="docker-compose.yml" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="SSH.NET" Version="2020.0.1" />
-    <PackageReference Include="Foundatio" Version="10.2.3" Condition="'$(ReferenceFoundatioSource)' == '' OR '$(ReferenceFoundatioSource)' == 'false'" />
+    <PackageReference Include="Foundatio" Version="10.2.4" Condition="'$(ReferenceFoundatioSource)' == '' OR '$(ReferenceFoundatioSource)' == 'false'" />
     <ProjectReference Include="..\..\..\Foundatio\src\Foundatio\Foundatio.csproj" Condition="'$(ReferenceFoundatioSource)' == 'true'" />
   </ItemGroup>
 </Project> 
