@@ -265,7 +265,7 @@ namespace Foundatio.Storage {
             if (cancellationToken.IsCancellationRequested)
                 return;
 
-            var files = new List<ISftpFile>();
+            var files = new List<SftpFile>();
             try {
                 files.AddRange(await _client.ListDirectoryAsync(prefix, null).AnyContext());
             } catch (SftpPathNotFoundException) {
