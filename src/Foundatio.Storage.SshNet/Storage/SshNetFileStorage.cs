@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -212,6 +212,7 @@ namespace Foundatio.Storage {
             if (pageSize <= 0)
                 return PagedFileListResult.Empty;
 
+            searchPattern = NormalizePath(searchPattern);
             var result = new PagedFileListResult(r => GetFiles(searchPattern, 1, pageSize, cancellationToken));
             await result.NextPageAsync().AnyContext();
             return result;
@@ -374,7 +375,7 @@ namespace Foundatio.Storage {
                 int slashPos = beforeWildcard.LastIndexOf('/');
                 prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
             } else {
-                patternRegex = null; // = new Regex("^" + searchPattern + "$");
+                patternRegex = new Regex("^" + searchPattern + "$");
                 int slashPos = searchPattern.LastIndexOf('/');
                 prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
             }
