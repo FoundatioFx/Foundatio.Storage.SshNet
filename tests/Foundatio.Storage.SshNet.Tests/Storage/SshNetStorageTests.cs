@@ -87,7 +87,7 @@ namespace Foundatio.SshNet.Tests.Storage {
             return base.CanRenameFilesAsync();
         }
 
-        [Fact]
+        [Fact(Skip = "Doesn't work well with SFTP")]
         public override Task CanConcurrentlyManageFilesAsync() {
             return base.CanConcurrentlyManageFilesAsync();
         }
