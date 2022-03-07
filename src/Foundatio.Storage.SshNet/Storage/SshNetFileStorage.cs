@@ -131,12 +131,11 @@ namespace Foundatio.Storage {
             if (String.IsNullOrEmpty(targetPath))
                 throw new ArgumentNullException(nameof(targetPath));
 
-            using (var stream = await GetFileStreamAsync(path, cancellationToken).AnyContext()) {
-                if (stream == null)
-                    return false;
+            using var stream = await GetFileStreamAsync(path, cancellationToken).AnyContext();
+            if (stream == null)
+                return false;
 
-                return await SaveFileAsync(targetPath, stream, cancellationToken).AnyContext();
-            }
+            return await SaveFileAsync(targetPath, stream, cancellationToken).AnyContext();
         }
 
         public Task<bool> DeleteFileAsync(string path, CancellationToken cancellationToken = default) {
