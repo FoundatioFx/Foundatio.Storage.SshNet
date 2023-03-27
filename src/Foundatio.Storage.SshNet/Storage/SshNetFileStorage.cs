@@ -174,7 +174,6 @@ public class SshNetFileStorage : IFileStorage {
     }
 
     public async Task<int> DeleteFilesAsync(string searchPattern = null, CancellationToken cancellationToken = default) {
-        using var _ = _logger.BeginScope(s => s.Property("SearchPattern", searchPattern));
         EnsureClientConnected();
 
         if (searchPattern == null)
@@ -272,8 +271,6 @@ public class SshNetFileStorage : IFileStorage {
     }
 
     private async Task<List<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default) {
-        using var _ = _logger.BeginScope(s => s.Property("SearchPattern", searchPattern).Property("Limit", limit).Property("Skip", skip));
-        
         if (limit is <= 0)
             return new List<FileSpec>();
 
@@ -284,6 +281,12 @@ public class SshNetFileStorage : IFileStorage {
 
         // NOTE: This could be very expensive the larger the directory structure you have as we aren't efficiently doing paging.
         int? recordsToReturn = limit.HasValue ? skip.GetValueOrDefault() * limit + limit : null;
+        
+        _logger.LogTrace(
+            s => s.Property("SearchPattern", searchPattern).Property("Limit", limit).Property("Skip", skip), 
+            "Getting file list recursively matching {Prefix} and {Pattern}...", criteria.Prefix, criteria.Pattern
+        );
+        
         await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list, recordsToReturn, cancellationToken).AnyContext();
 
         if (skip.HasValue)
@@ -296,9 +299,6 @@ public class SshNetFileStorage : IFileStorage {
     }
 
     private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null, CancellationToken cancellationToken = default) {
-        using var _ = _logger.BeginScope(s => s.Property("Prefix", prefix).Property("Pattern", pattern.ToString()));
-
-        _logger.LogTrace("Getting file list recursively matching {Prefix}...", prefix);
         if (cancellationToken.IsCancellationRequested) {
             _logger.LogDebug("Returning empty file list: Cancellation requested");
             return;
