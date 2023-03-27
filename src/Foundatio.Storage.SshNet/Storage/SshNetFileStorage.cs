@@ -54,7 +54,7 @@ public class SshNetFileStorage : IFileStorage {
 
             return stream;
         } catch (SftpPathNotFoundException ex) {
-            _logger.LogDebug(ex, "Unable to get file stream for {Path}: File Not Found", normalizedPath);
+            _logger.LogError(ex, "Unable to get file stream for {Path}: File Not Found", normalizedPath);
             return null;
         }
     }
@@ -77,7 +77,7 @@ public class SshNetFileStorage : IFileStorage {
                 Size = file.Length
             });
         } catch (SftpPathNotFoundException ex) {
-            _logger.LogDebug(ex, "Unable to get file info for {Path}: File Not Found", normalizedPath);
+            _logger.LogError(ex, "Unable to get file info for {Path}: File Not Found", normalizedPath);
             return Task.FromResult<FileSpec>(null);
         }
     }
@@ -126,7 +126,7 @@ public class SshNetFileStorage : IFileStorage {
 
         string normalizedPath = NormalizePath(path);
         string normalizedNewPath = NormalizePath(newPath);
-        _logger.LogTrace("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
+        _logger.LogInformation("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
         EnsureClientConnected();
 
         try {
@@ -188,7 +188,7 @@ public class SshNetFileStorage : IFileStorage {
 
         // TODO: We could batch this, but we should ensure the batch isn't thousands of files.
         var sw = Stopwatch.StartNew();
-        _logger.LogTrace("Deleting {FileCount} files matching {SearchPattern}", files.Count, searchPattern);
+        _logger.LogInformation("Deleting {FileCount} files matching {SearchPattern}", files.Count, searchPattern);
         foreach (var file in files) {
             await DeleteFileAsync(file.Path, cancellationToken).AnyContext();
             count++;
@@ -219,7 +219,7 @@ public class SshNetFileStorage : IFileStorage {
         int count = 0;
         
         string directory = NormalizePath(path);
-        _logger.LogTrace("Deleting {Directory} directory", directory);
+        _logger.LogInformation("Deleting {Directory} directory", directory);
 
         foreach (var file in await _client.ListDirectoryAsync(directory)) {
             if (file.Name is "." or "..") 
