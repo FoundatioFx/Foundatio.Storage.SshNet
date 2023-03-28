@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -71,7 +70,7 @@ public class SshNetFileStorage : IFileStorage {
         try {
             var file = _client.Get(normalizedPath);
             return Task.FromResult(new FileSpec {
-                Path = file.FullName.TrimStart('/'),
+                Path = normalizedPath,
                 Created = file.LastWriteTimeUtc,
                 Modified = file.LastWriteTimeUtc,
                 Size = file.Length
@@ -96,7 +95,6 @@ public class SshNetFileStorage : IFileStorage {
     public async Task<bool> SaveFileAsync(string path, Stream stream, CancellationToken cancellationToken = default) {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
-
         if (stream == null)
             throw new ArgumentNullException(nameof(stream));
         
@@ -107,8 +105,8 @@ public class SshNetFileStorage : IFileStorage {
 
         try {
             await Task.Factory.FromAsync(_client.BeginUploadFile(stream, normalizedPath, null, null), _client.EndUploadFile).AnyContext();
-        } catch (SftpPathNotFoundException) {
-            _logger.LogDebug("Error saving {Path}: Attempting to create directory", normalizedPath);
+        } catch (SftpPathNotFoundException ex) {
+            _logger.LogDebug(ex, "Error saving {Path}: Attempting to create directory", normalizedPath);
             CreateDirectory(normalizedPath);
             
             _logger.LogTrace("Saving {Path}", normalizedPath);
@@ -131,8 +129,8 @@ public class SshNetFileStorage : IFileStorage {
 
         try {
             _client.RenameFile(normalizedPath, normalizedNewPath, true);
-        } catch (SftpPathNotFoundException) {
-            _logger.LogDebug("Error renaming {Path} to {NewPath}: Attempting to create directory", normalizedPath, normalizedNewPath);
+        } catch (SftpPathNotFoundException ex) {
+            _logger.LogDebug(ex, "Error renaming {Path} to {NewPath}: Attempting to create directory", normalizedPath, normalizedNewPath);
             CreateDirectory(normalizedNewPath);
             
             _logger.LogTrace("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
@@ -148,11 +146,20 @@ public class SshNetFileStorage : IFileStorage {
         if (String.IsNullOrEmpty(targetPath))
             throw new ArgumentNullException(nameof(targetPath));
 
-        using var stream = await GetFileStreamAsync(path, cancellationToken).AnyContext();
-        if (stream == null)
-            return false;
+        string normalizedPath = NormalizePath(path);
+        string normalizedTargetPath = NormalizePath(targetPath);
+        _logger.LogInformation("Copying {Path} to {TargetPath}", normalizedPath, normalizedTargetPath);
+        
+        try {
+            using var stream = await GetFileStreamAsync(normalizedPath, cancellationToken).AnyContext();
+            if (stream == null)
+                return false;
 
-        return await SaveFileAsync(targetPath, stream, cancellationToken).AnyContext();
+            return await SaveFileAsync(normalizedTargetPath, stream, cancellationToken).AnyContext();
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Error copying {Path} to {TargetPath}: {Message}", normalizedPath, normalizedTargetPath, ex.Message);
+            return false;
+        }
     }
 
     public Task<bool> DeleteFileAsync(string path, CancellationToken cancellationToken = default) {
@@ -167,7 +174,8 @@ public class SshNetFileStorage : IFileStorage {
         try {
             _client.DeleteFile(normalizedPath);
         } catch (SftpPathNotFoundException ex) {
-            _logger.LogDebug(ex, "{Path} does not exist", normalizedPath);
+            _logger.LogDebug(ex, "Unable to delete {Path}: File not found", normalizedPath);
+            return Task.FromResult(false);
         }
 
         return Task.FromResult(true);
@@ -186,13 +194,12 @@ public class SshNetFileStorage : IFileStorage {
         int count = 0;
 
         // TODO: We could batch this, but we should ensure the batch isn't thousands of files.
-        var sw = Stopwatch.StartNew();
         _logger.LogInformation("Deleting {FileCount} files matching {SearchPattern}", files.Count, searchPattern);
         foreach (var file in files) {
             await DeleteFileAsync(file.Path, cancellationToken).AnyContext();
             count++;
         }
-        _logger.LogTrace("Finished deleting {FileCount} files matching {SearchPattern} in {Duration:g}", files.Count, searchPattern, sw.Elapsed);
+        _logger.LogTrace("Finished deleting {FileCount} files matching {SearchPattern}", count, searchPattern);
 
         return count;
     }
@@ -236,6 +243,7 @@ public class SshNetFileStorage : IFileStorage {
         if (includeSelf)
             _client.DeleteDirectory(directory);
 
+        _logger.LogTrace("Finished deleting {Directory} directory with {FileCount} files", directory, count);
         return count;
     }
 
@@ -312,7 +320,7 @@ public class SshNetFileStorage : IFileStorage {
             return;
         }
 
-        foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderBy(f => f.IsRegularFile).ThenBy(f => f.Name)) {
+        foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderByDescending(f => f.IsRegularFile).ThenBy(f => f.Name)) {
             if (cancellationToken.IsCancellationRequested) {
                 _logger.LogDebug("Cancellation requested");
                 return;
@@ -332,7 +340,7 @@ public class SshNetFileStorage : IFileStorage {
             if (!file.IsRegularFile)
                 continue;
 
-            string path = file.FullName.TrimStart('/');
+            string path = String.Concat(prefix, "/", file.Name);
             if (pattern != null && !pattern.IsMatch(path)) {
                 _logger.LogTrace("Skipping {Path}: Doesn't match pattern", path);
                 continue;
@@ -393,7 +401,7 @@ public class SshNetFileStorage : IFileStorage {
         
         _logger.LogTrace("Connecting to {Host}:{Port}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port);
         _client.Connect();
-        _logger.LogTrace("Connected to {Host}:{Port}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port);
+        _logger.LogTrace("Connected to {Host}:{Port} in {WorkingDirectory}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port, _client.WorkingDirectory);
     }
 
     private string NormalizePath(string path) {
@@ -409,22 +417,22 @@ public class SshNetFileStorage : IFileStorage {
         if (String.IsNullOrEmpty(searchPattern))
             return new SearchCriteria { Prefix = String.Empty };
 
-        searchPattern = NormalizePath(searchPattern);
-        int wildcardPos = searchPattern?.IndexOf('*') ?? -1;
+        string normalizedSearchPattern = NormalizePath(searchPattern);
+        int wildcardPos = normalizedSearchPattern.IndexOf('*');
         bool hasWildcard = wildcardPos >= 0;
 
         string prefix;
         Regex patternRegex;
 
         if (hasWildcard) {
-            patternRegex = new Regex($"^{Regex.Escape(searchPattern).Replace("\\*", ".*?")}$");
-            string beforeWildcard = searchPattern.Substring(0, wildcardPos);
+            patternRegex = new Regex($"^{Regex.Escape(normalizedSearchPattern).Replace("\\*", ".*?")}$");
+            string beforeWildcard = normalizedSearchPattern.Substring(0, wildcardPos);
             int slashPos = beforeWildcard.LastIndexOf('/');
-            prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
+            prefix = slashPos >= 0 ? normalizedSearchPattern.Substring(0, slashPos) : String.Empty;
         } else {
-            patternRegex = new Regex($"^{searchPattern}$");
-            int slashPos = searchPattern.LastIndexOf('/');
-            prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
+            patternRegex = new Regex($"^{normalizedSearchPattern}$");
+            int slashPos = normalizedSearchPattern.LastIndexOf('/');
+            prefix = slashPos >= 0 ? normalizedSearchPattern.Substring(0, slashPos) : String.Empty;
         }
 
         return new SearchCriteria {
