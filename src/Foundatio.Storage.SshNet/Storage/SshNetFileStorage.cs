@@ -300,21 +300,21 @@ public class SshNetFileStorage : IFileStorage {
 
     private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null, CancellationToken cancellationToken = default) {
         if (cancellationToken.IsCancellationRequested) {
-            _logger.LogDebug("Returning empty file list: Cancellation requested");
+            _logger.LogDebug("Cancellation requested");
             return;
         }
 
         var files = new List<SftpFile>();
         try {
-            files.AddRange(await _client.ListDirectoryAsync(prefix, null).AnyContext());
+            files.AddRange(await _client.ListDirectoryAsync(prefix).AnyContext());
         } catch (SftpPathNotFoundException) {
-            _logger.LogDebug("Returning empty file list: Directory not found with {Prefix}", prefix);
+            _logger.LogDebug("Directory not found with {Prefix}", prefix);
             return;
         }
 
         foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderBy(f => f.IsRegularFile).ThenBy(f => f.Name)) {
             if (cancellationToken.IsCancellationRequested) {
-                _logger.LogDebug("Returning partial file list: Cancellation requested");
+                _logger.LogDebug("Cancellation requested");
                 return;
             }
 
@@ -417,12 +417,12 @@ public class SshNetFileStorage : IFileStorage {
         Regex patternRegex;
 
         if (hasWildcard) {
-            patternRegex = new Regex("^" + Regex.Escape(searchPattern).Replace("\\*", ".*?") + "$");
+            patternRegex = new Regex($"^{Regex.Escape(searchPattern).Replace("\\*", ".*?")}$");
             string beforeWildcard = searchPattern.Substring(0, wildcardPos);
             int slashPos = beforeWildcard.LastIndexOf('/');
             prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
         } else {
-            patternRegex = new Regex("^" + searchPattern + "$");
+            patternRegex = new Regex($"^{searchPattern}$");
             int slashPos = searchPattern.LastIndexOf('/');
             prefix = slashPos >= 0 ? searchPattern.Substring(0, slashPos) : String.Empty;
         }
