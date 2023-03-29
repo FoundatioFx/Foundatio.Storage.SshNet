@@ -26,7 +26,7 @@ public class SshNetFileStorage : IFileStorage {
             throw new ArgumentNullException(nameof(options));
 
         _serializer = options.Serializer ?? DefaultSerializer.Instance;
-        _logger = options.LoggerFactory?.CreateLogger(GetType()) ?? NullLogger<SshNetFileStorage>.Instance;
+        _logger = options.LoggerFactory?.CreateLogger(GetType()) ?? NullLogger.Instance;
         
         _connectionInfo = CreateConnectionInfo(options);
         _client = new SftpClient(_connectionInfo);
@@ -174,7 +174,7 @@ public class SshNetFileStorage : IFileStorage {
         try {
             _client.DeleteFile(normalizedPath);
         } catch (SftpPathNotFoundException ex) {
-            _logger.LogDebug(ex, "Unable to delete {Path}: File not found", normalizedPath);
+            _logger.LogError(ex, "Unable to delete {Path}: File not found", normalizedPath);
             return Task.FromResult(false);
         }
 
@@ -216,7 +216,7 @@ public class SshNetFileStorage : IFileStorage {
             if (_client.Exists(currentDirectory)) 
                 continue;
             
-            _logger.LogTrace("Creating {Directory} directory", directory);
+            _logger.LogInformation("Creating {Directory} directory", directory);
             _client.CreateDirectory(currentDirectory);
         }
     }
@@ -251,8 +251,7 @@ public class SshNetFileStorage : IFileStorage {
         if (pageSize <= 0)
             return PagedFileListResult.Empty;
 
-        searchPattern = NormalizePath(searchPattern);
-        var result = new PagedFileListResult(r => GetFiles(searchPattern, 1, pageSize, cancellationToken));
+        var result = new PagedFileListResult(_ => GetFiles(searchPattern, 1, pageSize, cancellationToken));
         await result.NextPageAsync().AnyContext();
         return result;
     }
@@ -274,7 +273,7 @@ public class SshNetFileStorage : IFileStorage {
             Success = true,
             HasMore = hasMore,
             Files = list,
-            NextPageFunc = hasMore ? r => GetFiles(searchPattern, page + 1, pageSize, cancellationToken) : null
+            NextPageFunc = hasMore ? _ => GetFiles(searchPattern, page + 1, pageSize, cancellationToken) : null
         };
     }
 
