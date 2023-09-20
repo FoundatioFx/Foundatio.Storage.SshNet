@@ -29,7 +29,6 @@ public class SshNetFileStorageOptionsBuilder : SharedOptionsBuilder<SshNetFileSt
         return this;
     }
         
-        
     public SshNetFileStorageOptionsBuilder PrivateKey(string privateKey) {
         if (String.IsNullOrEmpty(privateKey)) 
             throw new ArgumentNullException(nameof(privateKey));
