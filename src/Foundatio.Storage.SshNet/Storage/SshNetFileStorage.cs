@@ -36,7 +36,10 @@ public class SshNetFileStorage : IFileStorage {
         : this(config(new SshNetFileStorageOptionsBuilder()).Build()) { }
 
     ISerializer IHaveSerializer.Serializer => _serializer;
-    public SftpClient Client => _client;
+    public SftpClient GetClient() {
+        EnsureClientConnected();
+        return _client;
+    }
 
     public async Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default) {
         if (String.IsNullOrEmpty(path))
@@ -395,7 +398,7 @@ public class SshNetFileStorage : IFileStorage {
         return new ConnectionInfo(uri.Host, port, username, authenticationMethods.ToArray());
     }
 
-    public void EnsureClientConnected() {
+    private void EnsureClientConnected() {
         if (_client.IsConnected) 
             return;
         
