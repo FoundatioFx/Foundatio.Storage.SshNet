@@ -36,7 +36,7 @@ public class SshNetFileStorage : IFileStorage {
         : this(config(new SshNetFileStorageOptionsBuilder()).Build()) { }
 
     ISerializer IHaveSerializer.Serializer => _serializer;
-    SftpClient Client => _client;
+    public SftpClient Client => _client;
 
     public async Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default) {
         if (String.IsNullOrEmpty(path))
