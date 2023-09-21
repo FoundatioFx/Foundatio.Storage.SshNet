@@ -395,7 +395,7 @@ public class SshNetFileStorage : IFileStorage {
         return new ConnectionInfo(uri.Host, port, username, authenticationMethods.ToArray());
     }
 
-    private void EnsureClientConnected() {
+    public void EnsureClientConnected() {
         if (_client.IsConnected) 
             return;
         
