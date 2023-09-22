@@ -189,7 +189,7 @@ public class SshNetFileStorage : IFileStorage {
         EnsureClientConnected();
 
         if (searchPattern == null)
-            return await DeleteDirectory("/", false);
+            return await DeleteDirectory(_client.WorkingDirectory, false);
 
         if (searchPattern.EndsWith("/*"))
             return await DeleteDirectory(searchPattern.Substring(0, searchPattern.Length - 2), false);
@@ -216,7 +216,11 @@ public class SshNetFileStorage : IFileStorage {
         string currentDirectory = String.Empty;
 
         foreach (string segment in folderSegments) {
-            currentDirectory = String.Concat(currentDirectory, "/", segment);
+            // If current directory is empty, use current working directory instead of a rooted path.
+            currentDirectory = String.IsNullOrEmpty(currentDirectory)
+                ? segment
+                : String.Concat(currentDirectory, "/", segment);
+            
             if (_client.Exists(currentDirectory)) 
                 continue;
             
@@ -332,18 +336,22 @@ public class SshNetFileStorage : IFileStorage {
             if (recordsToReturn.HasValue && list.Count >= recordsToReturn)
                 break;
 
+            // If prefix (current directory) is empty, use current working directory instead of a rooted path.
+            string path = String.IsNullOrEmpty(prefix)
+                ? file.Name
+                : String.Concat(prefix, "/", file.Name);
+
             if (file.IsDirectory) {
                 if (file.Name is "." or "..")
                     continue;
 
-                await GetFileListRecursivelyAsync(String.Concat(prefix, "/", file.Name), pattern, list, recordsToReturn, cancellationToken).AnyContext();
+                await GetFileListRecursivelyAsync(path, pattern, list, recordsToReturn, cancellationToken).AnyContext();
                 continue;
             }
 
             if (!file.IsRegularFile)
                 continue;
 
-            string path = String.Concat(prefix, "/", file.Name);
             if (pattern != null && !pattern.IsMatch(path)) {
                 _logger.LogTrace("Skipping {Path}: Doesn't match pattern", path);
                 continue;
