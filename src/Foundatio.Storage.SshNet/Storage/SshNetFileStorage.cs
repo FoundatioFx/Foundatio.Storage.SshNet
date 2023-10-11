@@ -104,14 +104,14 @@ public class SshNetFileStorage : IFileStorage {
 
         try {
             await using var sftpFileStream = await _client.OpenAsync(normalizedPath, FileMode.OpenOrCreate, FileAccess.Write, cancellationToken).AnyContext();
-            await stream.CopyToAsync(sftpFileStream, cancellationToken);
+            await stream.CopyToAsync(sftpFileStream, cancellationToken).AnyContext();
         } catch (SftpPathNotFoundException ex) {
             _logger.LogDebug(ex, "Error saving {Path}: Attempting to create directory", normalizedPath);
             CreateDirectory(normalizedPath);
             
             _logger.LogTrace("Saving {Path}", normalizedPath);
             await using var sftpFileStream = await _client.OpenAsync(normalizedPath, FileMode.OpenOrCreate, FileAccess.Write, cancellationToken).AnyContext();
-            await stream.CopyToAsync(sftpFileStream, cancellationToken);
+            await stream.CopyToAsync(sftpFileStream, cancellationToken).AnyContext();
         }
 
         return true;
