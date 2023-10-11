@@ -136,6 +136,9 @@ public class SshNetFileStorage : IFileStorage {
             
             _logger.LogTrace("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
             await _client.RenameFileAsync(normalizedPath, normalizedNewPath, cancellationToken).AnyContext();
+        } catch (Exception ex) {
+            _logger.LogError(ex, "Error renaming {Path} to {NewPath}: {Message}", normalizedPath, normalizedNewPath, ex.Message);
+            return false;
         }
 
         return true;
