@@ -195,10 +195,10 @@ public class SshNetFileStorage : IFileStorage {
         EnsureClientConnected();
 
         if (searchPattern == null)
-            return await DeleteDirectory(_client.WorkingDirectory, false, cancellationToken);
+            return await DeleteDirectoryAsync(_client.WorkingDirectory, false, cancellationToken);
 
         if (searchPattern.EndsWith("/*"))
-            return await DeleteDirectory(searchPattern[..^2], false, cancellationToken);
+            return await DeleteDirectoryAsync(searchPattern[..^2], false, cancellationToken);
 
         var files = await GetFileListAsync(searchPattern, cancellationToken: cancellationToken).AnyContext();
         int count = 0;
@@ -235,7 +235,7 @@ public class SshNetFileStorage : IFileStorage {
         }
     }
 
-    private async Task<int> DeleteDirectory(string path, bool includeSelf, CancellationToken cancellationToken = default) {
+    private async Task<int> DeleteDirectoryAsync(string path, bool includeSelf, CancellationToken cancellationToken = default) {
         int count = 0;
         
         string directory = NormalizePath(path);
@@ -246,7 +246,7 @@ public class SshNetFileStorage : IFileStorage {
                 continue;
             
             if (file.IsDirectory) {
-                count += await DeleteDirectory(file.FullName, true);
+                count += await DeleteDirectoryAsync(file.FullName, true, cancellationToken);
             } else {
                 _logger.LogTrace("Deleting file {Path}", file.FullName);
                 await _client.DeleteFileAsync(file.FullName, cancellationToken).AnyContext();
