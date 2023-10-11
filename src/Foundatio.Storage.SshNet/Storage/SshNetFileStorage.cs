@@ -128,6 +128,12 @@ public class SshNetFileStorage : IFileStorage {
         _logger.LogInformation("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
         EnsureClientConnected();
 
+        if (await ExistsAsync(normalizedNewPath).AnyContext()) {
+            _logger.LogDebug("Removing existing {NewPath} path for rename operation", normalizedNewPath);
+            await DeleteFileAsync(normalizedNewPath, cancellationToken).AnyContext();
+            _logger.LogDebug("Removed existing {NewPath} path for rename operation", normalizedNewPath);
+        }
+
         try {
             await _client.RenameFileAsync(normalizedPath, normalizedNewPath, cancellationToken).AnyContext();
         } catch (SftpPathNotFoundException ex) {
