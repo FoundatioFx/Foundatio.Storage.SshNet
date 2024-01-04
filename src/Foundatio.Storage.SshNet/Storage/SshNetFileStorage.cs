@@ -13,7 +13,7 @@ using Renci.SshNet;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
 
-namespace Foundatio.Storage; 
+namespace Foundatio.Storage;
 
 public class SshNetFileStorage : IFileStorage {
     private readonly ISftpClient _client;
@@ -40,9 +40,17 @@ public class SshNetFileStorage : IFileStorage {
         return _client;
     }
 
-    public async Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default) {
+    [Obsolete($"Use {nameof(GetFileStreamAsync)} with {nameof(FileAccess)} instead to define read or write behaviour of stream")]
+    public Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default)
+        => GetFileStreamAsync(path, StreamMode.Read, cancellationToken);
+
+    public async Task<Stream> GetFileStreamAsync(string path, StreamMode streamMode, CancellationToken cancellationToken = default)
+    {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
+
+        if (streamMode is StreamMode.Write)
+            throw new NotSupportedException($"Stream mode {streamMode} is not supported.");
 
         EnsureClientConnected();
 
@@ -85,7 +93,7 @@ public class SshNetFileStorage : IFileStorage {
             throw new ArgumentNullException(nameof(path));
 
         EnsureClientConnected();
-        
+
         string normalizedPath = NormalizePath(path);
         _logger.LogTrace("Checking if {Path} exists", normalizedPath);
         return Task.FromResult(_client.Exists(normalizedPath));
@@ -96,10 +104,10 @@ public class SshNetFileStorage : IFileStorage {
             throw new ArgumentNullException(nameof(path));
         if (stream == null)
             throw new ArgumentNullException(nameof(stream));
-        
+
         string normalizedPath = NormalizePath(path);
         _logger.LogTrace("Saving {Path}", normalizedPath);
-        
+
         EnsureClientConnected();
 
         try {
@@ -108,7 +116,7 @@ public class SshNetFileStorage : IFileStorage {
         } catch (SftpPathNotFoundException ex) {
             _logger.LogDebug(ex, "Error saving {Path}: Attempting to create directory", normalizedPath);
             CreateDirectory(normalizedPath);
-            
+
             _logger.LogTrace("Saving {Path}", normalizedPath);
             await using var sftpFileStream = await _client.OpenAsync(normalizedPath, FileMode.OpenOrCreate, FileAccess.Write, cancellationToken).AnyContext();
             await stream.CopyToAsync(sftpFileStream, cancellationToken).AnyContext();
@@ -139,7 +147,7 @@ public class SshNetFileStorage : IFileStorage {
         } catch (SftpPathNotFoundException ex) {
             _logger.LogDebug(ex, "Error renaming {Path} to {NewPath}: Attempting to create directory", normalizedPath, normalizedNewPath);
             CreateDirectory(normalizedNewPath);
-            
+
             _logger.LogTrace("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
             await _client.RenameFileAsync(normalizedPath, normalizedNewPath, cancellationToken).AnyContext();
         } catch (Exception ex) {
@@ -161,7 +169,7 @@ public class SshNetFileStorage : IFileStorage {
         _logger.LogInformation("Copying {Path} to {TargetPath}", normalizedPath, normalizedTargetPath);
         
         try {
-            await using var stream = await GetFileStreamAsync(normalizedPath, cancellationToken).AnyContext();
+            await using var stream = await GetFileStreamAsync(normalizedPath, StreamMode.Read, cancellationToken).AnyContext();
             if (stream == null)
                 return false;
 
@@ -226,10 +234,10 @@ public class SshNetFileStorage : IFileStorage {
             currentDirectory = String.IsNullOrEmpty(currentDirectory)
                 ? segment
                 : String.Concat(currentDirectory, "/", segment);
-            
-            if (_client.Exists(currentDirectory)) 
+
+            if (_client.Exists(currentDirectory))
                 continue;
-            
+
             _logger.LogInformation("Creating {Directory} directory", directory);
             _client.CreateDirectory(currentDirectory);
         }
@@ -237,14 +245,14 @@ public class SshNetFileStorage : IFileStorage {
 
     private async Task<int> DeleteDirectoryAsync(string path, bool includeSelf, CancellationToken cancellationToken = default) {
         int count = 0;
-        
+
         string directory = NormalizePath(path);
         _logger.LogInformation("Deleting {Directory} directory", directory);
 
         await foreach (var file in _client.ListDirectoryAsync(directory, cancellationToken).AnyContext()) {
             if (file.Name is "." or "..") 
                 continue;
-            
+
             if (file.IsDirectory) {
                 count += await DeleteDirectoryAsync(file.FullName, true, cancellationToken);
             } else {
@@ -302,12 +310,12 @@ public class SshNetFileStorage : IFileStorage {
 
         // NOTE: This could be very expensive the larger the directory structure you have as we aren't efficiently doing paging.
         int? recordsToReturn = limit.HasValue ? skip.GetValueOrDefault() * limit + limit : null;
-        
+
         _logger.LogTrace(
-            s => s.Property("SearchPattern", searchPattern).Property("Limit", limit).Property("Skip", skip), 
+            s => s.Property("SearchPattern", searchPattern).Property("Limit", limit).Property("Skip", skip),
             "Getting file list recursively matching {Prefix} and {Pattern}...", criteria.Prefix, criteria.Pattern
         );
-        
+
         await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list, recordsToReturn, cancellationToken).AnyContext();
 
         if (skip.HasValue)
@@ -415,9 +423,9 @@ public class SshNetFileStorage : IFileStorage {
     }
 
     private void EnsureClientConnected() {
-        if (_client.IsConnected) 
+        if (_client.IsConnected)
             return;
-        
+
         _logger.LogTrace("Connecting to {Host}:{Port}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port);
         _client.Connect();
         _logger.LogTrace("Connected to {Host}:{Port} in {WorkingDirectory}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port, _client.WorkingDirectory);
