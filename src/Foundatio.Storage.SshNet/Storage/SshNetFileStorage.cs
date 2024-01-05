@@ -15,18 +15,20 @@ using Renci.SshNet.Sftp;
 
 namespace Foundatio.Storage;
 
-public class SshNetFileStorage : IFileStorage {
+public class SshNetFileStorage : IFileStorage
+{
     private readonly ISftpClient _client;
     private readonly ISerializer _serializer;
     protected readonly ILogger _logger;
 
-    public SshNetFileStorage(SshNetFileStorageOptions options) {
+    public SshNetFileStorage(SshNetFileStorageOptions options)
+    {
         if (options == null)
             throw new ArgumentNullException(nameof(options));
 
         _serializer = options.Serializer ?? DefaultSerializer.Instance;
         _logger = options.LoggerFactory?.CreateLogger(GetType()) ?? NullLogger.Instance;
-        
+
         var connectionInfo = CreateConnectionInfo(options);
         _client = new SftpClient(connectionInfo);
     }
@@ -35,7 +37,8 @@ public class SshNetFileStorage : IFileStorage {
         : this(config(new SshNetFileStorageOptionsBuilder()).Build()) { }
 
     ISerializer IHaveSerializer.Serializer => _serializer;
-    public ISftpClient GetClient() {
+    public ISftpClient GetClient()
+    {
         EnsureClientConnected();
         return _client;
     }
@@ -56,16 +59,20 @@ public class SshNetFileStorage : IFileStorage {
 
         string normalizedPath = NormalizePath(path);
         _logger.LogTrace("Getting file stream for {Path}", normalizedPath);
-        
-        try {
+
+        try
+        {
             return await _client.OpenAsync(normalizedPath, FileMode.Open, FileAccess.Read, cancellationToken).AnyContext();
-        } catch (SftpPathNotFoundException ex) {
+        }
+        catch (SftpPathNotFoundException ex)
+        {
             _logger.LogError(ex, "Unable to get file stream for {Path}: File Not Found", normalizedPath);
             return null;
         }
     }
 
-    public Task<FileSpec> GetFileInfoAsync(string path) {
+    public Task<FileSpec> GetFileInfoAsync(string path)
+    {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
 
@@ -73,22 +80,27 @@ public class SshNetFileStorage : IFileStorage {
 
         string normalizedPath = NormalizePath(path);
         _logger.LogTrace("Getting file info for {Path}", normalizedPath);
-        
-        try {
+
+        try
+        {
             var file = _client.Get(normalizedPath);
-            return Task.FromResult(new FileSpec {
+            return Task.FromResult(new FileSpec
+            {
                 Path = normalizedPath,
                 Created = file.LastWriteTimeUtc,
                 Modified = file.LastWriteTimeUtc,
                 Size = file.Length
             });
-        } catch (SftpPathNotFoundException ex) {
+        }
+        catch (SftpPathNotFoundException ex)
+        {
             _logger.LogError(ex, "Unable to get file info for {Path}: File Not Found", normalizedPath);
             return Task.FromResult<FileSpec>(null);
         }
     }
 
-    public Task<bool> ExistsAsync(string path) {
+    public Task<bool> ExistsAsync(string path)
+    {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
 
@@ -99,7 +111,8 @@ public class SshNetFileStorage : IFileStorage {
         return Task.FromResult(_client.Exists(normalizedPath));
     }
 
-    public async Task<bool> SaveFileAsync(string path, Stream stream, CancellationToken cancellationToken = default) {
+    public async Task<bool> SaveFileAsync(string path, Stream stream, CancellationToken cancellationToken = default)
+    {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
         if (stream == null)
@@ -110,10 +123,13 @@ public class SshNetFileStorage : IFileStorage {
 
         EnsureClientConnected();
 
-        try {
+        try
+        {
             await using var sftpFileStream = await _client.OpenAsync(normalizedPath, FileMode.OpenOrCreate, FileAccess.Write, cancellationToken).AnyContext();
             await stream.CopyToAsync(sftpFileStream, cancellationToken).AnyContext();
-        } catch (SftpPathNotFoundException ex) {
+        }
+        catch (SftpPathNotFoundException ex)
+        {
             _logger.LogDebug(ex, "Error saving {Path}: Attempting to create directory", normalizedPath);
             CreateDirectory(normalizedPath);
 
@@ -125,7 +141,8 @@ public class SshNetFileStorage : IFileStorage {
         return true;
     }
 
-    public async Task<bool> RenameFileAsync(string path, string newPath, CancellationToken cancellationToken = default) {
+    public async Task<bool> RenameFileAsync(string path, string newPath, CancellationToken cancellationToken = default)
+    {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
         if (String.IsNullOrEmpty(newPath))
@@ -136,21 +153,27 @@ public class SshNetFileStorage : IFileStorage {
         _logger.LogInformation("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
         EnsureClientConnected();
 
-        if (await ExistsAsync(normalizedNewPath).AnyContext()) {
+        if (await ExistsAsync(normalizedNewPath).AnyContext())
+        {
             _logger.LogDebug("Removing existing {NewPath} path for rename operation", normalizedNewPath);
             await DeleteFileAsync(normalizedNewPath, cancellationToken).AnyContext();
             _logger.LogDebug("Removed existing {NewPath} path for rename operation", normalizedNewPath);
         }
 
-        try {
+        try
+        {
             await _client.RenameFileAsync(normalizedPath, normalizedNewPath, cancellationToken).AnyContext();
-        } catch (SftpPathNotFoundException ex) {
+        }
+        catch (SftpPathNotFoundException ex)
+        {
             _logger.LogDebug(ex, "Error renaming {Path} to {NewPath}: Attempting to create directory", normalizedPath, normalizedNewPath);
             CreateDirectory(normalizedNewPath);
 
             _logger.LogTrace("Renaming {Path} to {NewPath}", normalizedPath, normalizedNewPath);
             await _client.RenameFileAsync(normalizedPath, normalizedNewPath, cancellationToken).AnyContext();
-        } catch (Exception ex) {
+        }
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error renaming {Path} to {NewPath}: {Message}", normalizedPath, normalizedNewPath, ex.Message);
             return false;
         }
@@ -158,7 +181,8 @@ public class SshNetFileStorage : IFileStorage {
         return true;
     }
 
-    public async Task<bool> CopyFileAsync(string path, string targetPath, CancellationToken cancellationToken = default) {
+    public async Task<bool> CopyFileAsync(string path, string targetPath, CancellationToken cancellationToken = default)
+    {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
         if (String.IsNullOrEmpty(targetPath))
@@ -167,20 +191,24 @@ public class SshNetFileStorage : IFileStorage {
         string normalizedPath = NormalizePath(path);
         string normalizedTargetPath = NormalizePath(targetPath);
         _logger.LogInformation("Copying {Path} to {TargetPath}", normalizedPath, normalizedTargetPath);
-        
-        try {
+
+        try
+        {
             await using var stream = await GetFileStreamAsync(normalizedPath, StreamMode.Read, cancellationToken).AnyContext();
             if (stream == null)
                 return false;
 
             return await SaveFileAsync(normalizedTargetPath, stream, cancellationToken).AnyContext();
-        } catch (Exception ex) {
+        }
+        catch (Exception ex)
+        {
             _logger.LogError(ex, "Error copying {Path} to {TargetPath}: {Message}", normalizedPath, normalizedTargetPath, ex.Message);
             return false;
         }
     }
 
-    public async Task<bool> DeleteFileAsync(string path, CancellationToken cancellationToken = default) {
+    public async Task<bool> DeleteFileAsync(string path, CancellationToken cancellationToken = default)
+    {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
 
@@ -188,10 +216,13 @@ public class SshNetFileStorage : IFileStorage {
 
         string normalizedPath = NormalizePath(path);
         _logger.LogTrace("Deleting {Path}", normalizedPath);
-        
-        try {
+
+        try
+        {
             await _client.DeleteFileAsync(normalizedPath, cancellationToken).AnyContext();
-        } catch (SftpPathNotFoundException ex) {
+        }
+        catch (SftpPathNotFoundException ex)
+        {
             _logger.LogError(ex, "Unable to delete {Path}: File not found", normalizedPath);
             return false;
         }
@@ -199,7 +230,8 @@ public class SshNetFileStorage : IFileStorage {
         return true;
     }
 
-    public async Task<int> DeleteFilesAsync(string searchPattern = null, CancellationToken cancellationToken = default) {
+    public async Task<int> DeleteFilesAsync(string searchPattern = null, CancellationToken cancellationToken = default)
+    {
         EnsureClientConnected();
 
         if (searchPattern == null)
@@ -213,7 +245,8 @@ public class SshNetFileStorage : IFileStorage {
 
         // TODO: We could batch this, but we should ensure the batch isn't thousands of files.
         _logger.LogInformation("Deleting {FileCount} files matching {SearchPattern}", files.Count, searchPattern);
-        foreach (var file in files) {
+        foreach (var file in files)
+        {
             await DeleteFileAsync(file.Path, cancellationToken).AnyContext();
             count++;
         }
@@ -222,14 +255,16 @@ public class SshNetFileStorage : IFileStorage {
         return count;
     }
 
-    private void CreateDirectory(string path) {
+    private void CreateDirectory(string path)
+    {
         string directory = NormalizePath(Path.GetDirectoryName(path));
         _logger.LogTrace("Ensuring {Directory} directory exists", directory);
-        
+
         string[] folderSegments = directory?.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
         string currentDirectory = String.Empty;
 
-        foreach (string segment in folderSegments) {
+        foreach (string segment in folderSegments)
+        {
             // If current directory is empty, use current working directory instead of a rooted path.
             currentDirectory = String.IsNullOrEmpty(currentDirectory)
                 ? segment
@@ -243,19 +278,24 @@ public class SshNetFileStorage : IFileStorage {
         }
     }
 
-    private async Task<int> DeleteDirectoryAsync(string path, bool includeSelf, CancellationToken cancellationToken = default) {
+    private async Task<int> DeleteDirectoryAsync(string path, bool includeSelf, CancellationToken cancellationToken = default)
+    {
         int count = 0;
 
         string directory = NormalizePath(path);
         _logger.LogInformation("Deleting {Directory} directory", directory);
 
-        await foreach (var file in _client.ListDirectoryAsync(directory, cancellationToken).AnyContext()) {
-            if (file.Name is "." or "..") 
+        await foreach (var file in _client.ListDirectoryAsync(directory, cancellationToken).AnyContext())
+        {
+            if (file.Name is "." or "..")
                 continue;
 
-            if (file.IsDirectory) {
+            if (file.IsDirectory)
+            {
                 count += await DeleteDirectoryAsync(file.FullName, true, cancellationToken);
-            } else {
+            }
+            else
+            {
                 _logger.LogTrace("Deleting file {Path}", file.FullName);
                 await _client.DeleteFileAsync(file.FullName, cancellationToken).AnyContext();
                 count++;
@@ -269,7 +309,8 @@ public class SshNetFileStorage : IFileStorage {
         return count;
     }
 
-    public async Task<PagedFileListResult> GetPagedFileListAsync(int pageSize = 100, string searchPattern = null, CancellationToken cancellationToken = default) {
+    public async Task<PagedFileListResult> GetPagedFileListAsync(int pageSize = 100, string searchPattern = null, CancellationToken cancellationToken = default)
+    {
         if (pageSize <= 0)
             return PagedFileListResult.Empty;
 
@@ -278,7 +319,8 @@ public class SshNetFileStorage : IFileStorage {
         return result;
     }
 
-    private async Task<NextPageResult> GetFiles(string searchPattern, int page, int pageSize, CancellationToken cancellationToken) {
+    private async Task<NextPageResult> GetFiles(string searchPattern, int page, int pageSize, CancellationToken cancellationToken)
+    {
         int pagingLimit = pageSize;
         int skip = (page - 1) * pagingLimit;
         if (pagingLimit < Int32.MaxValue)
@@ -286,12 +328,14 @@ public class SshNetFileStorage : IFileStorage {
 
         var list = await GetFileListAsync(searchPattern, pagingLimit, skip, cancellationToken).AnyContext();
         bool hasMore = false;
-        if (list.Count == pagingLimit) {
+        if (list.Count == pagingLimit)
+        {
             hasMore = true;
             list.RemoveAt(pagingLimit - 1);
         }
 
-        return new NextPageResult {
+        return new NextPageResult
+        {
             Success = true,
             HasMore = hasMore,
             Files = list,
@@ -299,7 +343,8 @@ public class SshNetFileStorage : IFileStorage {
         };
     }
 
-    private async Task<List<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default) {
+    private async Task<List<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default)
+    {
         if (limit is <= 0)
             return new List<FileSpec>();
 
@@ -327,24 +372,32 @@ public class SshNetFileStorage : IFileStorage {
         return list;
     }
 
-    private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null, CancellationToken cancellationToken = default) {
-        if (cancellationToken.IsCancellationRequested) {
+    private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null, CancellationToken cancellationToken = default)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
             _logger.LogDebug("Cancellation requested");
             return;
         }
 
         var files = new List<ISftpFile>();
-        try {
-            await foreach (var file in _client.ListDirectoryAsync(prefix, cancellationToken).AnyContext()) { 
+        try
+        {
+            await foreach (var file in _client.ListDirectoryAsync(prefix, cancellationToken).AnyContext())
+            {
                 files.Add(file);
             }
-        } catch (SftpPathNotFoundException) {
+        }
+        catch (SftpPathNotFoundException)
+        {
             _logger.LogDebug("Directory not found with {Prefix}", prefix);
             return;
         }
 
-        foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderByDescending(f => f.IsRegularFile).ThenBy(f => f.Name)) {
-            if (cancellationToken.IsCancellationRequested) {
+        foreach (var file in files.Where(f => f.IsRegularFile || f.IsDirectory).OrderByDescending(f => f.IsRegularFile).ThenBy(f => f.Name))
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
                 _logger.LogDebug("Cancellation requested");
                 return;
             }
@@ -357,7 +410,8 @@ public class SshNetFileStorage : IFileStorage {
                 ? file.Name
                 : String.Concat(prefix, "/", file.Name);
 
-            if (file.IsDirectory) {
+            if (file.IsDirectory)
+            {
                 if (file.Name is "." or "..")
                     continue;
 
@@ -368,12 +422,14 @@ public class SshNetFileStorage : IFileStorage {
             if (!file.IsRegularFile)
                 continue;
 
-            if (pattern != null && !pattern.IsMatch(path)) {
+            if (pattern != null && !pattern.IsMatch(path))
+            {
                 _logger.LogTrace("Skipping {Path}: Doesn't match pattern", path);
                 continue;
             }
 
-            list.Add(new FileSpec {
+            list.Add(new FileSpec
+            {
                 Path = path,
                 Created = file.LastWriteTimeUtc,
                 Modified = file.LastWriteTimeUtc,
@@ -382,14 +438,15 @@ public class SshNetFileStorage : IFileStorage {
         }
     }
 
-    private ConnectionInfo CreateConnectionInfo(SshNetFileStorageOptions options) {
+    private ConnectionInfo CreateConnectionInfo(SshNetFileStorageOptions options)
+    {
         if (String.IsNullOrEmpty(options.ConnectionString))
             throw new ArgumentNullException(nameof(options.ConnectionString));
 
         if (!Uri.TryCreate(options.ConnectionString, UriKind.Absolute, out var uri) || String.IsNullOrEmpty(uri?.UserInfo))
             throw new ArgumentException("Unable to parse connection string uri", nameof(options.ConnectionString));
 
-        string[] userParts = uri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+        string[] userParts = uri.UserInfo.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
         string username = Uri.UnescapeDataString(userParts.First());
         string password = Uri.UnescapeDataString(userParts.Length > 1 ? userParts[1] : String.Empty);
         int port = uri.Port > 0 ? uri.Port : 22;
@@ -404,11 +461,12 @@ public class SshNetFileStorage : IFileStorage {
         if (authenticationMethods.Count == 0)
             authenticationMethods.Add(new NoneAuthenticationMethod(username));
 
-        if (!String.IsNullOrEmpty(options.Proxy)) {
+        if (!String.IsNullOrEmpty(options.Proxy))
+        {
             if (!Uri.TryCreate(options.Proxy, UriKind.Absolute, out var proxyUri) || String.IsNullOrEmpty(proxyUri?.UserInfo))
                 throw new ArgumentException("Unable to parse proxy uri", nameof(options.Proxy));
 
-            string[] proxyParts = proxyUri.UserInfo.Split(new [] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] proxyParts = proxyUri.UserInfo.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
             string proxyUsername = proxyParts.First();
             string proxyPassword = proxyParts.Length > 1 ? proxyParts[1] : null;
 
@@ -422,7 +480,8 @@ public class SshNetFileStorage : IFileStorage {
         return new ConnectionInfo(uri.Host, port, username, authenticationMethods.ToArray());
     }
 
-    private void EnsureClientConnected() {
+    private void EnsureClientConnected()
+    {
         if (_client.IsConnected)
             return;
 
@@ -431,16 +490,19 @@ public class SshNetFileStorage : IFileStorage {
         _logger.LogTrace("Connected to {Host}:{Port} in {WorkingDirectory}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port, _client.WorkingDirectory);
     }
 
-    private string NormalizePath(string path) {
+    private string NormalizePath(string path)
+    {
         return path?.Replace('\\', '/');
     }
 
-    private class SearchCriteria {
+    private class SearchCriteria
+    {
         public string Prefix { get; set; }
         public Regex Pattern { get; set; }
     }
 
-    private SearchCriteria GetRequestCriteria(string searchPattern) {
+    private SearchCriteria GetRequestCriteria(string searchPattern)
+    {
         if (String.IsNullOrEmpty(searchPattern))
             return new SearchCriteria { Prefix = String.Empty };
 
@@ -451,25 +513,31 @@ public class SshNetFileStorage : IFileStorage {
         string prefix;
         Regex patternRegex;
 
-        if (hasWildcard) {
+        if (hasWildcard)
+        {
             patternRegex = new Regex($"^{Regex.Escape(normalizedSearchPattern).Replace("\\*", ".*?")}$");
             string beforeWildcard = normalizedSearchPattern[..wildcardPos];
             int slashPos = beforeWildcard.LastIndexOf('/');
             prefix = slashPos >= 0 ? normalizedSearchPattern[..slashPos] : String.Empty;
-        } else {
+        }
+        else
+        {
             patternRegex = new Regex($"^{normalizedSearchPattern}$");
             int slashPos = normalizedSearchPattern.LastIndexOf('/');
             prefix = slashPos >= 0 ? normalizedSearchPattern[..slashPos] : String.Empty;
         }
 
-        return new SearchCriteria {
+        return new SearchCriteria
+        {
             Prefix = prefix,
             Pattern = patternRegex
         };
     }
 
-    public void Dispose() {
-        if (_client.IsConnected) {
+    public void Dispose()
+    {
+        if (_client.IsConnected)
+        {
             _logger.LogTrace("Disconnecting from {Host}:{Port}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port);
             _client.Disconnect();
             _logger.LogTrace("Disconnected from {Host}:{Port}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port);
