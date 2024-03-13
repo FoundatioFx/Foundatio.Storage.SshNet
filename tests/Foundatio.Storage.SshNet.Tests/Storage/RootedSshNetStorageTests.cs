@@ -160,4 +160,38 @@ public class RootedSshNetStorageTests : FileStorageTestsBase
     {
         return base.WillRespectStreamOffsetAsync();
     }
+
+    [Fact]
+    public virtual async Task WillNotReturnDirectoryInGetPagedFileListAsync()
+    {
+        var storage = GetStorage();
+        if (storage == null)
+            return;
+
+        await ResetAsync(storage);
+
+        using (storage)
+        {
+            var result = await storage.GetPagedFileListAsync();
+            Assert.False(result.HasMore);
+            Assert.Empty(result.Files);
+            Assert.False(await result.NextPageAsync());
+            Assert.False(result.HasMore);
+            Assert.Empty(result.Files);
+
+            var client = storage is ScopedFileStorage { UnscopedStorage: SshNetFileStorage sshNetStorage }
+                ? sshNetStorage.GetClient()
+                : null;
+            Assert.NotNull(client);
+
+            client.CreateDirectory("storage/EmptyFolder");
+
+            result = await storage.GetPagedFileListAsync();
+            Assert.False(result.HasMore);
+            Assert.Empty(result.Files);
+            Assert.False(await result.NextPageAsync());
+            Assert.False(result.HasMore);
+            Assert.Empty(result.Files);
+        }
+    }
 }
