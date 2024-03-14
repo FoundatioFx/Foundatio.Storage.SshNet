@@ -179,10 +179,11 @@ public class SshNetStorageTests : FileStorageTestsBase
             Assert.False(result.HasMore);
             Assert.Empty(result.Files);
 
+            const string directory = "EmptyDirectory";
             var client = storage is ScopedFileStorage { UnscopedStorage: SshNetFileStorage sshNetStorage } ? sshNetStorage.GetClient() : null;
             Assert.NotNull(client);
 
-            client.CreateDirectory("storage/EmptyFolder");
+            client.CreateDirectory($"storage/{directory}");
 
             result = await storage.GetPagedFileListAsync();
             Assert.False(result.HasMore);
@@ -190,6 +191,19 @@ public class SshNetStorageTests : FileStorageTestsBase
             Assert.False(await result.NextPageAsync());
             Assert.False(result.HasMore);
             Assert.Empty(result.Files);
+
+            // Ensure the directory will not be returned via get file info
+            var info = await storage.GetFileInfoAsync(directory);
+            Assert.Null(info?.Path);
+
+            // Ensure delete files can remove all files including fake folders
+            await storage.DeleteFilesAsync("*");
+
+            // Assert folder was removed by Delete Files
+            Assert.False(client.Exists($"storage/{directory}"));
+
+            info = await storage.GetFileInfoAsync(directory);
+            Assert.Null(info);
         }
     }
 }
