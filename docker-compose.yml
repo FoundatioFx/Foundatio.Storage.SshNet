@@ -8,5 +8,6 @@ services:
     command: foundatio:password:::storage
   ready:
     image: andrewlock/wait-for-dependencies
+    command: sftp:22
     depends_on:
       - sftp
