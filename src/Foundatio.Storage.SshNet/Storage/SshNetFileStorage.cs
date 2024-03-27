@@ -84,6 +84,9 @@ public class SshNetFileStorage : IFileStorage
         try
         {
             var file = _client.Get(normalizedPath);
+            if (file.IsDirectory)
+                return Task.FromResult<FileSpec>(null);
+
             return Task.FromResult(new FileSpec
             {
                 Path = normalizedPath,
