@@ -6,3 +6,7 @@ services:
     ports:
         - "2222:22"
     command: foundatio:password:::storage
+  ready:
+    image: andrewlock/wait-for-dependencies
+    depends_on:
+      - sftp
