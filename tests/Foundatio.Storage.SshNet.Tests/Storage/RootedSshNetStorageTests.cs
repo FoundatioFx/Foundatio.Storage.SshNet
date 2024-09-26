@@ -23,31 +23,6 @@ public class RootedSshNetStorageTests : FileStorageTestsBase
     }
 
     [Fact]
-    public void CanCreateSshNetFileStorageWithoutConnectionStringPassword()
-    {
-        //Arrange
-        var options = new SshNetFileStorageOptionsBuilder()
-            .ConnectionString("sftp://username@host")
-            .Build();
-
-        //Act
-        var storage = new SshNetFileStorage(options);
-    }
-
-    [Fact]
-    public void CanCreateSshNetFileStorageWithoutProxyPassword()
-    {
-        //Arrange
-        var options = new SshNetFileStorageOptionsBuilder()
-            .ConnectionString("sftp://username@host")
-            .Proxy("proxy://username@host")
-            .Build();
-
-        //Act
-        var storage = new SshNetFileStorage(options);
-    }
-
-    [Fact]
     public override Task CanGetEmptyFileListOnMissingDirectoryAsync()
     {
         return base.CanGetEmptyFileListOnMissingDirectoryAsync();
@@ -159,6 +134,45 @@ public class RootedSshNetStorageTests : FileStorageTestsBase
     public override Task WillRespectStreamOffsetAsync()
     {
         return base.WillRespectStreamOffsetAsync();
+    }
+
+    [Fact(Skip = "Write Stream is not yet supported")]
+    public override Task WillWriteStreamContentAsync()
+    {
+        return base.WillWriteStreamContentAsync();
+    }
+
+    [Fact]
+    public override Task CanSaveOverExistingStoredContent()
+    {
+        return base.CanSaveOverExistingStoredContent();
+    }
+
+    [Fact]
+    public void CanCreateSshNetFileStorageWithoutConnectionStringPassword()
+    {
+        //Arrange
+        var options = new SshNetFileStorageOptionsBuilder()
+            .ConnectionString("sftp://username@host")
+            .Build();
+
+        //Act
+        var storage = new SshNetFileStorage(options);
+        Assert.NotNull(storage);
+    }
+
+    [Fact]
+    public void CanCreateSshNetFileStorageWithoutProxyPassword()
+    {
+        //Arrange
+        var options = new SshNetFileStorageOptionsBuilder()
+            .ConnectionString("sftp://username@host")
+            .Proxy("proxy://username@host")
+            .Build();
+
+        //Act
+        var storage = new SshNetFileStorage(options);
+        Assert.NotNull(storage);
     }
 
     [Fact]

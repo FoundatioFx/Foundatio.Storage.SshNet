@@ -1,11 +1,14 @@
-version: '3.8'
-
 services:
   sftp:
     image: atmoz/sftp:latest
     ports:
         - "2222:22"
     command: foundatio:password:::storage
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
   ready:
     image: andrewlock/wait-for-dependencies
     command: sftp:22
