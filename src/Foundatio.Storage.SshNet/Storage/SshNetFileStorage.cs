@@ -524,6 +524,7 @@ public class SshNetFileStorage : IFileStorage
         string prefix;
         Regex patternRegex;
 
+        // NOTE: Prefix has to be a directory path, so if we do have a wildcard it needs to be part of the pattern.
         if (hasWildcard)
         {
             patternRegex = new Regex($"^{Regex.Escape(normalizedSearchPattern).Replace("\\*", ".*?")}$");
@@ -533,7 +534,7 @@ public class SshNetFileStorage : IFileStorage
         }
         else
         {
-            patternRegex = new Regex($"^{normalizedSearchPattern}$");
+            patternRegex = new Regex($"^{Regex.Escape(normalizedSearchPattern)}.*?$");
             int slashPos = normalizedSearchPattern.LastIndexOf('/');
             prefix = slashPos >= 0 ? normalizedSearchPattern[..slashPos] : String.Empty;
         }
