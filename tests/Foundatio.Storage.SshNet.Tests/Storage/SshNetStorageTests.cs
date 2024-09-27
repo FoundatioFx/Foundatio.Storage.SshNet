@@ -76,7 +76,7 @@ public class SshNetStorageTests : FileStorageTestsBase
         return base.CanRenameFilesAsync();
     }
 
-    [Fact(Skip = "Doesn't work well with SFTP")]
+    [Fact]
     public override Task CanConcurrentlyManageFilesAsync()
     {
         return base.CanConcurrentlyManageFilesAsync();

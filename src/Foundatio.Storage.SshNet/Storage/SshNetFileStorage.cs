@@ -263,7 +263,7 @@ public class SshNetFileStorage : IFileStorage
         string directory = NormalizePath(Path.GetDirectoryName(path));
         _logger.LogTrace("Ensuring {Directory} directory exists", directory);
 
-        string[] folderSegments = directory?.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
+        string[] folderSegments = directory?.Split(['/'], StringSplitOptions.RemoveEmptyEntries) ?? [];
         string currentDirectory = String.Empty;
 
         foreach (string segment in folderSegments)
@@ -277,7 +277,15 @@ public class SshNetFileStorage : IFileStorage
                 continue;
 
             _logger.LogInformation("Creating {Directory} directory", directory);
-            _client.CreateDirectory(currentDirectory);
+
+            try
+            {
+                _client.CreateDirectory(currentDirectory);
+            }
+            catch (Exception ex) when (_client.Exists(currentDirectory))
+            {
+                _logger.LogTrace(ex, "Error creating {Directory} directory: Already exists", directory);
+            }
         }
     }
 
