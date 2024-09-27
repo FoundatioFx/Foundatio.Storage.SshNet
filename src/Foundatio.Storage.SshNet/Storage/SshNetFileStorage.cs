@@ -276,7 +276,7 @@ public class SshNetFileStorage : IFileStorage
             if (_client.Exists(currentDirectory))
                 continue;
 
-            _logger.LogInformation("Creating {Directory} directory", directory);
+            _logger.LogInformation("Creating {Directory} directory", currentDirectory);
 
             try
             {
@@ -554,6 +554,6 @@ public class SshNetFileStorage : IFileStorage
             _logger.LogTrace("Disconnected from {Host}:{Port}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port);
         }
 
-        ((IBaseClient)_client).Dispose();
+        _client.Dispose();
     }
 }
