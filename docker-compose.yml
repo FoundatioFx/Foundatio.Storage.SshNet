@@ -4,10 +4,6 @@ services:
     ports:
         - "2222:22"
     command: foundatio:password:::storage
-    deploy:
-      resources:
-        limits:
-          memory: 128m
 
   ready:
     image: andrewlock/wait-for-dependencies
