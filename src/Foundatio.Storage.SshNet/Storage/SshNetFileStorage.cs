@@ -52,13 +52,23 @@ public class SshNetFileStorage : IFileStorage
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
 
-        if (streamMode is StreamMode.Write)
-            throw new NotSupportedException($"Stream mode {streamMode} is not supported.");
-
         EnsureClientConnected();
 
         string normalizedPath = NormalizePath(path);
         _logger.LogTrace("Getting file stream for {Path}", normalizedPath);
+
+        if (streamMode is StreamMode.Write)
+        {
+            try
+            {
+                return await _client.OpenAsync(normalizedPath, FileMode.Create, FileAccess.Write, cancellationToken).AnyContext();
+            }
+            catch (SftpPathNotFoundException ex)
+            {
+                _logger.LogError(ex, "Unable to get file stream for {Path}: File Not Found", normalizedPath);
+                return null;
+            }
+        }
 
         try
         {

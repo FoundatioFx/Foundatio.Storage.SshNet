@@ -136,7 +136,7 @@ public class SshNetStorageTests : FileStorageTestsBase
         return base.WillRespectStreamOffsetAsync();
     }
 
-    [Fact(Skip = "Write Stream is not yet supported")]
+    [Fact]
     public override Task WillWriteStreamContentAsync()
     {
         return base.WillWriteStreamContentAsync();
