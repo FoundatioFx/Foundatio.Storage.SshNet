@@ -4,7 +4,6 @@ using Foundatio.Storage;
 using Foundatio.Tests.Storage;
 using Foundatio.Tests.Utility;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Foundatio.SshNet.Tests.Storage;
 
@@ -179,14 +178,14 @@ public class SshNetStorageTests : FileStorageTestsBase
     public virtual async Task WillNotReturnDirectoryInGetPagedFileListAsync()
     {
         var storage = GetStorage();
-        if (storage == null)
+        if (storage is null)
             return;
 
         await ResetAsync(storage);
 
         using (storage)
         {
-            var result = await storage.GetPagedFileListAsync();
+            var result = await storage.GetPagedFileListAsync(cancellationToken: TestCancellationToken);
             Assert.False(result.HasMore);
             Assert.Empty(result.Files);
             Assert.False(await result.NextPageAsync());
@@ -199,7 +198,7 @@ public class SshNetStorageTests : FileStorageTestsBase
 
             client.CreateDirectory($"storage/{directory}");
 
-            result = await storage.GetPagedFileListAsync();
+            result = await storage.GetPagedFileListAsync(cancellationToken: TestCancellationToken);
             Assert.False(result.HasMore);
             Assert.Empty(result.Files);
             Assert.False(await result.NextPageAsync());
@@ -211,7 +210,7 @@ public class SshNetStorageTests : FileStorageTestsBase
             Assert.Null(info?.Path);
 
             // Ensure delete files can remove all files including fake folders
-            await storage.DeleteFilesAsync("*");
+            await storage.DeleteFilesAsync("*", TestCancellationToken);
 
             // Assert folder was removed by Delete Files
             Assert.False(client.Exists($"storage/{directory}"));
