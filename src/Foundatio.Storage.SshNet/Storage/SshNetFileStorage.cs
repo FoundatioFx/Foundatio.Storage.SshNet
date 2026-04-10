@@ -270,7 +270,7 @@ public class SshNetFileStorage : IFileStorage
 
     private void CreateDirectory(string path)
     {
-        string directory = NormalizePath(Path.GetDirectoryName(path) ?? string.Empty);
+        string directory = NormalizePath(Path.GetDirectoryName(path) ?? String.Empty);
         _logger.LogTrace("Ensuring {Directory} directory exists", directory);
 
         string[] folderSegments = directory?.Split(['/'], StringSplitOptions.RemoveEmptyEntries) ?? [];
@@ -518,7 +518,7 @@ public class SshNetFileStorage : IFileStorage
 
     private class SearchCriteria
     {
-        public string Prefix { get; set; } = string.Empty;
+        public string Prefix { get; set; } = String.Empty;
         public Regex? Pattern { get; set; }
     }
 
