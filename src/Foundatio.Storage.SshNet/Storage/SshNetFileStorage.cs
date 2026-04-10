@@ -43,7 +43,7 @@ public class SshNetFileStorage : IFileStorage
         return _client;
     }
 
-    [Obsolete($"Use {nameof(GetFileStreamAsync)} with {nameof(FileAccess)} instead to define read or write behaviour of stream")]
+    [Obsolete($"Use {nameof(GetFileStreamAsync)} with {nameof(StreamMode)} instead to define read or write behaviour of stream")]
     public Task<Stream?> GetFileStreamAsync(string path, CancellationToken cancellationToken = default)
         => GetFileStreamAsync(path, StreamMode.Read, cancellationToken);
 
@@ -270,7 +270,7 @@ public class SshNetFileStorage : IFileStorage
 
     private void CreateDirectory(string path)
     {
-        string directory = NormalizePath(Path.GetDirectoryName(path) ?? String.Empty);
+        string? directory = NormalizePath(Path.GetDirectoryName(path));
         _logger.LogTrace("Ensuring {Directory} directory exists", directory);
 
         string[] folderSegments = directory?.Split(['/'], StringSplitOptions.RemoveEmptyEntries) ?? [];
@@ -378,8 +378,8 @@ public class SshNetFileStorage : IFileStorage
         int? recordsToReturn = limit.HasValue ? skip.GetValueOrDefault() * limit + limit : null;
 
         _logger.LogTrace(
-            s => s.Property("SearchPattern", searchPattern ?? "(none)").Property("Limit", limit?.ToString() ?? "(none)").Property("Skip", skip?.ToString() ?? "(none)"),
-            "Getting file list recursively matching {Prefix} and {Pattern}...", criteria.Prefix, criteria.Pattern?.ToString() ?? "(none)"
+            s => s.Property("SearchPattern", searchPattern).Property("Limit", limit).Property("Skip", skip),
+            "Getting file list recursively matching {Prefix} and {Pattern}...", criteria.Prefix, criteria.Pattern
         );
 
         await GetFileListRecursivelyAsync(criteria.Prefix, criteria.Pattern, list, recordsToReturn, cancellationToken).AnyContext();
@@ -511,15 +511,16 @@ public class SshNetFileStorage : IFileStorage
         _logger.LogTrace("Connected to {Host}:{Port} in {WorkingDirectory}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port, _client.WorkingDirectory);
     }
 
-    private string NormalizePath(string path)
+    [return: System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(path))]
+    private string? NormalizePath(string? path)
     {
-        return path.Replace('\\', '/');
+        return path?.Replace('\\', '/');
     }
 
-    private class SearchCriteria
+    private record SearchCriteria
     {
-        public string Prefix { get; set; } = String.Empty;
-        public Regex? Pattern { get; set; }
+        public required string Prefix { get; init; }
+        public Regex? Pattern { get; init; }
     }
 
     private SearchCriteria GetRequestCriteria(string? searchPattern)
