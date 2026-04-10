@@ -7,11 +7,11 @@ namespace Foundatio.Storage;
 
 public class SshNetFileStorageOptions : SharedOptions
 {
-    public string ConnectionString { get; set; }
-    public string Proxy { get; set; }
+    public string ConnectionString { get; set; } = null!;
+    public string? Proxy { get; set; }
     public ProxyTypes ProxyType { get; set; }
-    public Stream PrivateKey { get; set; }
-    public string PrivateKeyPassPhrase { get; set; }
+    public Stream? PrivateKey { get; set; }
+    public string? PrivateKeyPassPhrase { get; set; }
 }
 
 public class SshNetFileStorageOptionsBuilder : SharedOptionsBuilder<SshNetFileStorageOptions, SshNetFileStorageOptionsBuilder>
