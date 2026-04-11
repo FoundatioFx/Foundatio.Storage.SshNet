@@ -270,10 +270,14 @@ public class SshNetFileStorage : IFileStorage
 
     private void CreateDirectory(string path)
     {
-        string? directory = NormalizePath(Path.GetDirectoryName(path));
+        string? directoryName = Path.GetDirectoryName(path);
+        if (String.IsNullOrEmpty(directoryName))
+            return;
+
+        string directory = NormalizePath(directoryName);
         _logger.LogTrace("Ensuring {Directory} directory exists", directory);
 
-        string[] folderSegments = directory?.Split(['/'], StringSplitOptions.RemoveEmptyEntries) ?? [];
+        string[] folderSegments = directory.Split(['/'], StringSplitOptions.RemoveEmptyEntries);
         string currentDirectory = String.Empty;
 
         foreach (string segment in folderSegments)
@@ -511,10 +515,9 @@ public class SshNetFileStorage : IFileStorage
         _logger.LogTrace("Connected to {Host}:{Port} in {WorkingDirectory}", _client.ConnectionInfo.Host, _client.ConnectionInfo.Port, _client.WorkingDirectory);
     }
 
-    [return: System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(path))]
-    private string? NormalizePath(string? path)
+    private string NormalizePath(string path)
     {
-        return path?.Replace('\\', '/');
+        return path.Replace('\\', '/');
     }
 
     private record SearchCriteria
