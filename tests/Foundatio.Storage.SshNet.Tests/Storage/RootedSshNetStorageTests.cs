@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Foundatio.Storage;
 using Foundatio.Tests.Storage;
@@ -12,9 +12,9 @@ public class RootedSshNetStorageTests : FileStorageTestsBase
 {
     public RootedSshNetStorageTests(ITestOutputHelper output) : base(output) { }
 
-    protected override IFileStorage GetStorage()
+    protected override IFileStorage? GetStorage()
     {
-        string connectionString = Configuration.GetConnectionString("SshNetStorageConnectionString");
+        string? connectionString = Configuration.GetConnectionString("SshNetStorageConnectionString");
         if (String.IsNullOrEmpty(connectionString))
             return null;
 

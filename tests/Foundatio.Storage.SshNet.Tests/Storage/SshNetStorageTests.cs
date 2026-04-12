@@ -12,9 +12,9 @@ public class SshNetStorageTests : FileStorageTestsBase
 {
     public SshNetStorageTests(ITestOutputHelper output) : base(output) { }
 
-    protected override IFileStorage GetStorage()
+    protected override IFileStorage? GetStorage()
     {
-        string connectionString = Configuration.GetConnectionString("SshNetStorageConnectionString");
+        string? connectionString = Configuration.GetConnectionString("SshNetStorageConnectionString");
         if (String.IsNullOrEmpty(connectionString))
             return null;
 

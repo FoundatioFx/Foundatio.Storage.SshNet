@@ -43,11 +43,11 @@ public class SshNetFileStorage : IFileStorage
         return _client;
     }
 
-    [Obsolete($"Use {nameof(GetFileStreamAsync)} with {nameof(FileAccess)} instead to define read or write behaviour of stream")]
-    public Task<Stream> GetFileStreamAsync(string path, CancellationToken cancellationToken = default)
+    [Obsolete($"Use {nameof(GetFileStreamAsync)} with {nameof(StreamMode)} instead to define read or write behaviour of stream")]
+    public Task<Stream?> GetFileStreamAsync(string path, CancellationToken cancellationToken = default)
         => GetFileStreamAsync(path, StreamMode.Read, cancellationToken);
 
-    public async Task<Stream> GetFileStreamAsync(string path, StreamMode streamMode, CancellationToken cancellationToken = default)
+    public async Task<Stream?> GetFileStreamAsync(string path, StreamMode streamMode, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
@@ -81,7 +81,7 @@ public class SshNetFileStorage : IFileStorage
         }
     }
 
-    public Task<FileSpec> GetFileInfoAsync(string path)
+    public Task<FileSpec?> GetFileInfoAsync(string path)
     {
         if (String.IsNullOrEmpty(path))
             throw new ArgumentNullException(nameof(path));
@@ -95,9 +95,9 @@ public class SshNetFileStorage : IFileStorage
         {
             var file = _client.Get(normalizedPath);
             if (file.IsDirectory)
-                return Task.FromResult<FileSpec>(null);
+                return Task.FromResult<FileSpec?>(null);
 
-            return Task.FromResult(new FileSpec
+            return Task.FromResult<FileSpec?>(new FileSpec
             {
                 Path = normalizedPath,
                 Created = file.LastWriteTimeUtc,
@@ -108,7 +108,7 @@ public class SshNetFileStorage : IFileStorage
         catch (SftpPathNotFoundException ex)
         {
             _logger.LogError(ex, "Unable to get file info for {Path}: File Not Found", normalizedPath);
-            return Task.FromResult<FileSpec>(null);
+            return Task.FromResult<FileSpec?>(null);
         }
     }
 
@@ -243,8 +243,11 @@ public class SshNetFileStorage : IFileStorage
         return true;
     }
 
-    public async Task<int> DeleteFilesAsync(string searchPattern = null, CancellationToken cancellationToken = default)
+    public async Task<int> DeleteFilesAsync(string? searchPattern = null, CancellationToken cancellationToken = default)
     {
+        if (String.IsNullOrEmpty(searchPattern))
+            searchPattern = null;
+
         EnsureClientConnected();
 
         if (searchPattern == null)
@@ -270,10 +273,14 @@ public class SshNetFileStorage : IFileStorage
 
     private void CreateDirectory(string path)
     {
-        string directory = NormalizePath(Path.GetDirectoryName(path));
+        string? directoryName = Path.GetDirectoryName(path);
+        if (String.IsNullOrEmpty(directoryName))
+            return;
+
+        string directory = NormalizePath(directoryName);
         _logger.LogTrace("Ensuring {Directory} directory exists", directory);
 
-        string[] folderSegments = directory?.Split(['/'], StringSplitOptions.RemoveEmptyEntries) ?? [];
+        string[] folderSegments = directory.Split(['/'], StringSplitOptions.RemoveEmptyEntries);
         string currentDirectory = String.Empty;
 
         foreach (string segment in folderSegments)
@@ -330,7 +337,7 @@ public class SshNetFileStorage : IFileStorage
         return count;
     }
 
-    public async Task<PagedFileListResult> GetPagedFileListAsync(int pageSize = 100, string searchPattern = null, CancellationToken cancellationToken = default)
+    public async Task<PagedFileListResult> GetPagedFileListAsync(int pageSize = 100, string? searchPattern = null, CancellationToken cancellationToken = default)
     {
         if (pageSize <= 0)
             return PagedFileListResult.Empty;
@@ -340,7 +347,7 @@ public class SshNetFileStorage : IFileStorage
         return result;
     }
 
-    private async Task<NextPageResult> GetFiles(string searchPattern, int page, int pageSize, CancellationToken cancellationToken)
+    private async Task<NextPageResult> GetFiles(string? searchPattern, int page, int pageSize, CancellationToken cancellationToken)
     {
         int pagingLimit = pageSize;
         int skip = (page - 1) * pagingLimit;
@@ -364,7 +371,7 @@ public class SshNetFileStorage : IFileStorage
         };
     }
 
-    private async Task<List<FileSpec>> GetFileListAsync(string searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default)
+    private async Task<List<FileSpec>> GetFileListAsync(string? searchPattern = null, int? limit = null, int? skip = null, CancellationToken cancellationToken = default)
     {
         if (limit is <= 0)
             return new List<FileSpec>();
@@ -393,7 +400,7 @@ public class SshNetFileStorage : IFileStorage
         return list;
     }
 
-    private async Task GetFileListRecursivelyAsync(string prefix, Regex pattern, ICollection<FileSpec> list, int? recordsToReturn = null, CancellationToken cancellationToken = default)
+    private async Task GetFileListRecursivelyAsync(string prefix, Regex? pattern, ICollection<FileSpec> list, int? recordsToReturn = null, CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)
         {
@@ -489,7 +496,7 @@ public class SshNetFileStorage : IFileStorage
 
             string[] proxyParts = proxyUri.UserInfo.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
             string proxyUsername = proxyParts.First();
-            string proxyPassword = proxyParts.Length > 1 ? proxyParts[1] : null;
+            string? proxyPassword = proxyParts.Length > 1 ? proxyParts[1] : null;
 
             var proxyType = options.ProxyType;
             if (proxyType == ProxyTypes.None && proxyUri.Scheme != null && proxyUri.Scheme.StartsWith("http"))
@@ -513,16 +520,16 @@ public class SshNetFileStorage : IFileStorage
 
     private string NormalizePath(string path)
     {
-        return path?.Replace('\\', '/');
+        return path.Replace('\\', '/');
     }
 
-    private class SearchCriteria
+    private record SearchCriteria
     {
-        public string Prefix { get; set; }
-        public Regex Pattern { get; set; }
+        public required string Prefix { get; init; }
+        public Regex? Pattern { get; init; }
     }
 
-    private SearchCriteria GetRequestCriteria(string searchPattern)
+    private SearchCriteria GetRequestCriteria(string? searchPattern)
     {
         if (String.IsNullOrEmpty(searchPattern))
             return new SearchCriteria { Prefix = String.Empty };
