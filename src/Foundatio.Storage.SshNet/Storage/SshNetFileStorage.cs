@@ -245,6 +245,9 @@ public class SshNetFileStorage : IFileStorage
 
     public async Task<int> DeleteFilesAsync(string? searchPattern = null, CancellationToken cancellationToken = default)
     {
+        if (String.IsNullOrEmpty(searchPattern))
+            searchPattern = null;
+
         EnsureClientConnected();
 
         if (searchPattern == null)
