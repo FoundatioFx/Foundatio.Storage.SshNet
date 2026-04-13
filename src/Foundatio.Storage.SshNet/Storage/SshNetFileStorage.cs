@@ -43,10 +43,6 @@ public class SshNetFileStorage : IFileStorage
         return _client;
     }
 
-    [Obsolete($"Use {nameof(GetFileStreamAsync)} with {nameof(StreamMode)} instead to define read or write behaviour of stream")]
-    public Task<Stream?> GetFileStreamAsync(string path, CancellationToken cancellationToken = default)
-        => GetFileStreamAsync(path, StreamMode.Read, cancellationToken);
-
     public async Task<Stream?> GetFileStreamAsync(string path, StreamMode streamMode, CancellationToken cancellationToken = default)
     {
         if (String.IsNullOrEmpty(path))
